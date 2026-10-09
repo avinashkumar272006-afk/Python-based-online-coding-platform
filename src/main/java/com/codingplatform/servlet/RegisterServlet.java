@@ -1,0 +1,81 @@
+package com.codingplatform.servlet;
+
+import com.codingplatform.model.*;
+import com.codingplatform.service.UserService;
+import com.codingplatform.service.UserServiceImpl;
+import com.codingplatform.exception.DatabaseException;
+
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import java.io.IOException;
+
+@WebServlet("/register")
+public class RegisterServlet extends HttpServlet {
+
+    private UserService userService;
+
+    @Override
+    public void init() throws ServletException {
+        this.userService = new UserServiceImpl();
+    }
+    
+    // For testing purposes
+    public void setUserService(UserService userService) {
+        this.userService = userService;
+    }
+
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        request.getRequestDispatcher("/register.jsp").forward(request, response);
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        String name = request.getParameter("name");
+        String email = request.getParameter("email");
+        String password = request.getParameter("password");
+        String confirmPassword = request.getParameter("confirmPassword");
+        String role = request.getParameter("role");
+
+        if (password == null || !password.equals(confirmPassword)) {
+            request.setAttribute("errorMessage", "Passwords do not match.");
+            request.getRequestDispatcher("/register.jsp").forward(request, response);
+            return;
+        }
+
+        User user;
+        if ("ADMIN".equals(role)) {
+            user = new Admin();
+        } else if ("INSTRUCTOR".equals(role)) {
+            user = new Instructor();
+        } else {
+            user = new Student();
+        }
+        
+        user.setName(name);
+        user.setEmail(email);
+        user.setPassword(password);
+        user.setRole(role);
+
+        try {
+            boolean success = userService.registerUser(user);
+            if (success) {
+                request.setAttribute("successMessage", "Registration successful! Please login.");
+                request.getRequestDispatcher("/login.jsp").forward(request, response);
+            } else {
+                request.setAttribute("errorMessage", "Registration failed. Please try again.");
+                request.getRequestDispatcher("/register.jsp").forward(request, response);
+            }
+        } catch (IllegalArgumentException e) {
+            request.setAttribute("errorMessage", e.getMessage());
+            request.getRequestDispatcher("/register.jsp").forward(request, response);
+        } catch (DatabaseException e) {
+            request.setAttribute("errorMessage", "An internal error occurred during registration. Please try again later.");
+            request.getRequestDispatcher("/register.jsp").forward(request, response);
+        }
+    }
+}

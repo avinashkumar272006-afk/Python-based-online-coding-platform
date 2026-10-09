@@ -1,0 +1,35 @@
+target/
+*.class
+
+# IDE / Editors
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Logs
+*.log
+
+# Environment Files
+.env
+*.env.*
+secrets.properties
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Maven
+dependency-reduced-pom.xml
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# Local temporary output
+mysql_output.txt
+out.txt
+out2.txt
+run_mysql.bat
+settings.html
+# Local verification file
+verify.sql
