@@ -279,14 +279,26 @@ public class DBConnectionPoolTest {
     }
 
     @Test
-    public void testInvalidDatabaseUrlThrowsDatabaseException() {
-        System.setProperty("DB_URL", "jdbc:postgresql://invalid-host-that-does-not-exist:5432/nonexistent");
-        System.setProperty("DB_USERNAME", "dummy");
-        System.setProperty("DB_PASSWORD", "dummy");
-        System.setProperty("DB_POOL_CONNECTION_TIMEOUT_MS", "1000"); // Fail fast
+    public void testInvalidH2DatabaseUrlThrowsDatabaseException() {
+        // Deterministic local test: invalid H2 connection parameter fails fast without network request
+        System.setProperty("DB_URL", "jdbc:h2:mem:pooltest;INVALID_SETTING=true");
+        System.setProperty("DB_USERNAME", H2_USER);
+        System.setProperty("DB_PASSWORD", H2_PASSWORD);
 
         DatabaseException ex = assertThrows(DatabaseException.class, DBConnection::getConnection);
         assertEquals("Failed to connect to the database", ex.getMessage());
         assertNotNull(ex.getCause());
+    }
+
+    @Test
+    public void testLiveDatabaseBlockedInTestEnvironmentWithoutOptIn() {
+        System.setProperty("DB_URL", "jdbc:postgresql://localhost:5432/coding_platform");
+        System.setProperty("DB_USERNAME", "dummy");
+        System.setProperty("DB_PASSWORD", "dummy");
+
+        DatabaseException ex = assertThrows(DatabaseException.class, DBConnection::getConnection);
+        assertTrue(ex.getMessage().contains("Live database access is blocked in TEST environment"));
+        assertNull(ex.getCause(), "Must fail fast before attempting any network socket or HikariDataSource creation");
+        assertFalse(DBConnection.isPoolInitialized(), "Pool must not be initialized when safety check fails");
     }
 }
