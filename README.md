@@ -180,7 +180,37 @@ psql -h <DB_HOST> -p <DB_PORT> -U <DB_USER> -d <DB_NAME> -f database/migrations/
 psql -h <DB_HOST> -p <DB_PORT> -U <DB_USER> -d <DB_NAME> -f database/migrations/V8__create_challenges.sql
 ```
 
-## Database Configuration
+## Environment and Database Configuration
+
+### Application Environment (`APP_ENV`)
+
+The application supports explicit runtime environment classification through `APP_ENV`. Configuration is read from the JVM system property first (`-DAPP_ENV=...`), then the operating-system environment variable.
+
+| Environment Type | Canonical Name | Accepted Aliases | Purpose / Notes |
+| ---------------- | -------------- | ---------------- | --------------- |
+| **Test** | `TEST` | `TESTING` | Automated test suite execution (injected by default in Maven Surefire) |
+| **Local Development** | `LOCAL_DEV` | `LOCAL`, `DEV`, `DEVELOPMENT`, `LOCAL-DEV` | Local developer machine execution |
+| **Staging** | `STAGING` | `STAGE` | Pre-production testing server |
+| **Production** | `PRODUCTION` | `PROD` | Production deployment |
+| **Unknown** | `UNKNOWN` | *(fallback)* | Missing, blank, or unrecognized values resolve strictly to `UNKNOWN` |
+
+#### Normalization & Behavior
+* Case is normalized case-insensitively using `Locale.ROOT`, and leading/trailing whitespace is trimmed.
+* If the JVM system property is explicitly set to blank, it resolves to `UNKNOWN` and does not fall back to the operating-system environment variable.
+* When `APP_ENV` resolves to `UNKNOWN`, the application logs a warning on context startup but permits execution for backward compatibility.
+* **Important:** `APP_ENV` provides environment classification and diagnostic awareness only. Setting `APP_ENV` does not itself validate database credentials, enforce connection encryption, or isolate database access.
+
+#### Setting `APP_ENV` in PowerShell
+
+```powershell
+# Set for the current PowerShell session
+$env:APP_ENV = "LOCAL_DEV"
+
+# Or pass directly to Maven test runs
+mvn test -DAPP_ENV=TEST
+```
+
+### Database Configuration
 
 The application reads database configuration from environment variables or JVM system properties via `DBConnection`:
 
