@@ -20,9 +20,21 @@ public class StudentExerciseServlet extends HttpServlet {
 
     private ExerciseService exerciseService;
 
+    public StudentExerciseServlet() {}
+
+    public StudentExerciseServlet(ExerciseService exerciseService) {
+        this.exerciseService = exerciseService;
+    }
+
+    public void setExerciseService(ExerciseService exerciseService) {
+        this.exerciseService = exerciseService;
+    }
+
     @Override
     public void init() throws ServletException {
-        exerciseService = new ExerciseServiceImpl(new ExerciseDAOImpl(), new com.codingplatform.daoimpl.UserDAOImpl());
+        if (exerciseService == null) {
+            exerciseService = new ExerciseServiceImpl(new ExerciseDAOImpl(), new com.codingplatform.daoimpl.UserDAOImpl());
+        }
     }
 
     @Override
@@ -40,7 +52,7 @@ public class StudentExerciseServlet extends HttpServlet {
                 listExercises(request, response);
             }
         } catch (DatabaseException e) {
-            throw new ServletException(e);
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Database error");
         }
     }
 
@@ -53,7 +65,25 @@ public class StudentExerciseServlet extends HttpServlet {
 
     private void viewExercise(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException, DatabaseException {
-        long id = Long.parseLong(request.getParameter("id"));
+        String idParam = request.getParameter("id");
+        if (idParam == null || idParam.trim().isEmpty()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid exercise ID");
+            return;
+        }
+
+        long id;
+        try {
+            id = Long.parseLong(idParam.trim());
+        } catch (NumberFormatException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid exercise ID");
+            return;
+        }
+
+        if (id <= 0) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid exercise ID");
+            return;
+        }
+
         Exercise exercise = exerciseService.getExerciseById(id);
         
         if (exercise == null || !"APPROVED".equals(exercise.getStatus())) {

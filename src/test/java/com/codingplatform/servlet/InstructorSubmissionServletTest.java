@@ -306,4 +306,26 @@ public class InstructorSubmissionServletTest {
         verify(request).setAttribute("submission", submission);
         verify(requestDispatcher).forward(request, response);
     }
+
+    @Test
+    public void testDoPost_InvalidStatus_RedisplaysForAuthorizedInstructor() throws Exception {
+        when(session.getAttribute("userId")).thenReturn(2);
+        when(session.getAttribute("role")).thenReturn("INSTRUCTOR");
+        when(request.getServletPath()).thenReturn("/instructor/submission/review");
+        when(request.getParameter("id")).thenReturn("10");
+        when(request.getParameter("status")).thenReturn("INVALID");
+
+        when(mockSubmissionService.reviewSubmission(eq(10L), eq(2), any(), eq("INVALID"), any()))
+                .thenThrow(new IllegalArgumentException("Invalid review status. Status must be REVIEWED or PENDING."));
+
+        Submission submission = new Submission();
+        submission.setId(10L);
+        when(mockSubmissionService.getSubmissionForInstructor(10L, 2)).thenReturn(submission);
+
+        servlet.doPost(request, response);
+
+        verify(request).setAttribute("error", "Invalid review status. Status must be REVIEWED or PENDING.");
+        verify(request).setAttribute("submission", submission);
+        verify(requestDispatcher).forward(request, response);
+    }
 }

@@ -87,6 +87,41 @@ public class SubmissionServiceTest {
     }
 
     @Test
+    public void testCreateSubmission_ExactBoundaryLengthAccepted() throws DatabaseException {
+        Submission sub = new Submission();
+        sub.setExerciseId(100L);
+        sub.setStudentId(1);
+        sub.setSubmittedCode("x".repeat(50_000));
+
+        boolean result = submissionService.createSubmission(sub);
+        assertTrue(result);
+        assertEquals("PENDING", sub.getStatus());
+    }
+
+    @Test
+    public void testCreateSubmission_ExceedsBoundaryLengthRejected() {
+        Submission sub = new Submission();
+        sub.setExerciseId(100L);
+        sub.setStudentId(1);
+        sub.setSubmittedCode("x".repeat(50_001));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> submissionService.createSubmission(sub));
+        assertEquals("Submitted code exceeds the maximum allowed length of 50000 characters.", ex.getMessage());
+    }
+
+    @Test
+    public void testCreateSubmission_NormalValidLengthAccepted() throws DatabaseException {
+        Submission sub = new Submission();
+        sub.setExerciseId(100L);
+        sub.setStudentId(1);
+        sub.setSubmittedCode("def solution():\n    return 42\n");
+
+        boolean result = submissionService.createSubmission(sub);
+        assertTrue(result);
+        assertEquals("PENDING", sub.getStatus());
+    }
+
+    @Test
     public void testInvalidStudentRejection() throws DatabaseException {
         Submission sub = new Submission();
         sub.setExerciseId(100L);
@@ -222,6 +257,97 @@ public class SubmissionServiceTest {
         assertEquals(2, reviewedSub.getReviewedBy());
         assertEquals(95, reviewedSub.getScore());
         assertNotNull(reviewedSub.getReviewedAt());
+    }
+
+    @Test
+    public void testReviewSubmission_StatusPendingAccepted() throws DatabaseException {
+        Submission sub = new Submission();
+        sub.setId(10L);
+        sub.setExerciseId(100L); // created by 2
+        sub.setStudentId(1);
+        sub.setSubmittedCode("code");
+        mockSubmissionDAO.addSubmission(sub);
+
+        boolean result = submissionService.reviewSubmission(10L, 2, "Needs work", "PENDING", 40);
+        assertTrue(result);
+
+        Submission reviewedSub = submissionService.getSubmissionById(10L);
+        assertEquals("PENDING", reviewedSub.getStatus());
+        assertEquals("Needs work", reviewedSub.getFeedback());
+        assertEquals(40, reviewedSub.getScore());
+    }
+
+    @Test
+    public void testReviewSubmission_NullStatusDefaultsToReviewed() throws DatabaseException {
+        Submission sub = new Submission();
+        sub.setId(10L);
+        sub.setExerciseId(100L); // created by 2
+        sub.setStudentId(1);
+        sub.setSubmittedCode("code");
+        mockSubmissionDAO.addSubmission(sub);
+
+        boolean result = submissionService.reviewSubmission(10L, 2, "Good", null, 85);
+        assertTrue(result);
+
+        Submission reviewedSub = submissionService.getSubmissionById(10L);
+        assertEquals("REVIEWED", reviewedSub.getStatus());
+    }
+
+    @Test
+    public void testReviewSubmission_BlankStatusDefaultsToReviewed() throws DatabaseException {
+        Submission sub = new Submission();
+        sub.setId(10L);
+        sub.setExerciseId(100L); // created by 2
+        sub.setStudentId(1);
+        sub.setSubmittedCode("code");
+        mockSubmissionDAO.addSubmission(sub);
+
+        boolean result = submissionService.reviewSubmission(10L, 2, "Good", "   ", 85);
+        assertTrue(result);
+
+        Submission reviewedSub = submissionService.getSubmissionById(10L);
+        assertEquals("REVIEWED", reviewedSub.getStatus());
+    }
+
+    @Test
+    public void testReviewSubmission_TrimmedStatusAccepted() throws DatabaseException {
+        Submission sub = new Submission();
+        sub.setId(10L);
+        sub.setExerciseId(100L); // created by 2
+        sub.setStudentId(1);
+        sub.setSubmittedCode("code");
+        mockSubmissionDAO.addSubmission(sub);
+
+        boolean result = submissionService.reviewSubmission(10L, 2, "Great", "  REVIEWED  ", 90);
+        assertTrue(result);
+
+        Submission reviewedSub = submissionService.getSubmissionById(10L);
+        assertEquals("REVIEWED", reviewedSub.getStatus());
+    }
+
+    @Test
+    public void testReviewSubmission_InvalidStatusRejected() {
+        Submission sub = new Submission();
+        sub.setId(10L);
+        sub.setExerciseId(100L); // created by 2
+        sub.setStudentId(1);
+        sub.setSubmittedCode("code");
+        mockSubmissionDAO.addSubmission(sub);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
+            submissionService.reviewSubmission(10L, 2, "Note", "INVALID", 50);
+        });
+        assertEquals("Invalid review status. Status must be REVIEWED or PENDING.", ex.getMessage());
+
+        ex = assertThrows(IllegalArgumentException.class, () -> {
+            submissionService.reviewSubmission(10L, 2, "Note", "APPROVED", 50);
+        });
+        assertEquals("Invalid review status. Status must be REVIEWED or PENDING.", ex.getMessage());
+
+        ex = assertThrows(IllegalArgumentException.class, () -> {
+            submissionService.reviewSubmission(10L, 2, "Note", "REJECTED", 50);
+        });
+        assertEquals("Invalid review status. Status must be REVIEWED or PENDING.", ex.getMessage());
     }
 
     @Test

@@ -247,6 +247,31 @@ public class StudentSubmissionServletTest {
     }
 
     @Test
+    public void testDoPost_Submit_OversizedCode_ApprovedExercise_ForwardsWithValidationMessage() throws Exception {
+        when(request.getServletPath()).thenReturn("/student/submit");
+        when(request.getParameter("exerciseId")).thenReturn("10");
+        String longCode = "a".repeat(50_001);
+        when(request.getParameter("submittedCode")).thenReturn(longCode);
+
+        doThrow(new IllegalArgumentException("Submitted code exceeds the maximum allowed length of 50000 characters."))
+                .when(submissionService).createSubmission(any(Submission.class));
+
+        Exercise approvedExercise = new Exercise();
+        approvedExercise.setId(10L);
+        approvedExercise.setStatus("APPROVED");
+        when(exerciseService.getExerciseById(10L)).thenReturn(approvedExercise);
+
+        servlet.doPost(request, response);
+
+        verify(submissionService).createSubmission(any(Submission.class));
+        verify(request).setAttribute("error", "Submitted code exceeds the maximum allowed length of 50000 characters.");
+        verify(request).setAttribute("exercise", approvedExercise);
+        verify(request).getRequestDispatcher("/student/submit-exercise.jsp");
+        verify(dispatcher).forward(request, response);
+        verify(response, never()).sendError(anyInt(), anyString());
+    }
+
+    @Test
     public void testDoPost_Unauthenticated_RedirectsToLogin() throws Exception {
         when(session.getAttribute("userId")).thenReturn(null);
         when(request.getServletPath()).thenReturn("/student/submit");

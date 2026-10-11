@@ -10,8 +10,14 @@ import com.codingplatform.exception.DatabaseException;
 
 import java.sql.Timestamp;
 import java.util.List;
+import java.util.Set;
 
 public class SubmissionServiceImpl implements SubmissionService {
+
+    public static final int MAX_SUBMITTED_CODE_LENGTH = 50_000;
+    public static final String STATUS_PENDING = "PENDING";
+    public static final String STATUS_REVIEWED = "REVIEWED";
+    public static final Set<String> ALLOWED_REVIEW_STATUSES = Set.of(STATUS_REVIEWED, STATUS_PENDING);
 
     private SubmissionDAO submissionDAO;
     private UserDAO userDAO;
@@ -29,6 +35,11 @@ public class SubmissionServiceImpl implements SubmissionService {
             throw new IllegalArgumentException("Submitted code cannot be empty.");
         }
 
+        if (submission.getSubmittedCode().length() > MAX_SUBMITTED_CODE_LENGTH) {
+            throw new IllegalArgumentException("Submitted code exceeds the maximum allowed length of "
+                    + MAX_SUBMITTED_CODE_LENGTH + " characters.");
+        }
+
         User student = userDAO.getUserById(submission.getStudentId());
         if (student == null || !"STUDENT".equals(student.getRole())) {
             throw new IllegalArgumentException("Student must exist and be a student.");
@@ -43,7 +54,7 @@ public class SubmissionServiceImpl implements SubmissionService {
             throw new IllegalArgumentException("Submissions are only allowed for approved exercises.");
         }
 
-        submission.setStatus("PENDING");
+        submission.setStatus(STATUS_PENDING);
         return submissionDAO.createSubmission(submission);
     }
 
@@ -104,7 +115,12 @@ public class SubmissionServiceImpl implements SubmissionService {
         }
 
         if (status == null || status.trim().isEmpty()) {
-            status = "REVIEWED";
+            status = STATUS_REVIEWED;
+        } else {
+            status = status.trim();
+            if (!ALLOWED_REVIEW_STATUSES.contains(status)) {
+                throw new IllegalArgumentException("Invalid review status. Status must be REVIEWED or PENDING.");
+            }
         }
         
         if (score != null && (score < 0 || score > 100)) {

@@ -34,19 +34,7 @@ public class StudentExerciseServletTest {
     @BeforeEach
     public void setUp() throws Exception {
         MockitoAnnotations.openMocks(this);
-        servlet = new StudentExerciseServlet() {
-            @Override
-            public void init() {
-                // Ignore real init to avoid hitting DB
-            }
-        };
-        
-        // Use reflection or package-private to inject mock service if possible. 
-        // Since exerciseService is private, let's inject via reflection.
-        java.lang.reflect.Field field = servlet.getClass().getSuperclass().getDeclaredField("exerciseService");
-        field.setAccessible(true);
-        field.set(servlet, exerciseService);
-        
+        servlet = new StudentExerciseServlet(exerciseService);
         when(request.getRequestDispatcher(anyString())).thenReturn(dispatcher);
     }
 
@@ -67,18 +55,147 @@ public class StudentExerciseServletTest {
     }
 
     @Test
+    public void testStudentCanViewApprovedExerciseDetails_Success() throws Exception {
+        when(request.getParameter("action")).thenReturn("view");
+        when(request.getParameter("id")).thenReturn("1");
+
+        Exercise ex = new Exercise();
+        ex.setId(1L);
+        ex.setTitle("Sum of Two Numbers");
+        ex.setStatus("APPROVED");
+
+        when(exerciseService.getExerciseById(1L)).thenReturn(ex);
+
+        servlet.doGet(request, response);
+
+        verify(exerciseService).getExerciseById(1L);
+        verify(request).setAttribute("exercise", ex);
+        verify(request).getRequestDispatcher("/student/exercise-detail.jsp");
+        verify(dispatcher).forward(request, response);
+        verify(response, never()).sendError(anyInt(), anyString());
+    }
+
+    @Test
     public void testStudentCannotViewPendingExerciseDetails() throws Exception {
         when(request.getParameter("action")).thenReturn("view");
         when(request.getParameter("id")).thenReturn("1");
         
         Exercise ex = new Exercise();
-        ex.setId(1);
+        ex.setId(1L);
         ex.setStatus("PENDING");
         
-        when(exerciseService.getExerciseById(1)).thenReturn(ex);
+        when(exerciseService.getExerciseById(1L)).thenReturn(ex);
         
         servlet.doGet(request, response);
         
         verify(response).sendError(HttpServletResponse.SC_NOT_FOUND, "Exercise not found or not approved.");
+        verify(request, never()).setAttribute(eq("exercise"), any());
+        verify(dispatcher, never()).forward(request, response);
+    }
+
+    @Test
+    public void testStudentCannotViewRejectedExerciseDetails() throws Exception {
+        when(request.getParameter("action")).thenReturn("view");
+        when(request.getParameter("id")).thenReturn("2");
+
+        Exercise ex = new Exercise();
+        ex.setId(2L);
+        ex.setStatus("REJECTED");
+
+        when(exerciseService.getExerciseById(2L)).thenReturn(ex);
+
+        servlet.doGet(request, response);
+
+        verify(response).sendError(HttpServletResponse.SC_NOT_FOUND, "Exercise not found or not approved.");
+        verify(request, never()).setAttribute(eq("exercise"), any());
+        verify(dispatcher, never()).forward(request, response);
+    }
+
+    @Test
+    public void testStudentViewExercise_NonexistentExercise_ReturnsNotFound() throws Exception {
+        when(request.getParameter("action")).thenReturn("view");
+        when(request.getParameter("id")).thenReturn("999");
+
+        when(exerciseService.getExerciseById(999L)).thenReturn(null);
+
+        servlet.doGet(request, response);
+
+        verify(response).sendError(HttpServletResponse.SC_NOT_FOUND, "Exercise not found or not approved.");
+        verify(request, never()).setAttribute(eq("exercise"), any());
+        verify(dispatcher, never()).forward(request, response);
+    }
+
+    @Test
+    public void testStudentViewExercise_MissingIdParam_ReturnsBadRequest400() throws Exception {
+        when(request.getParameter("action")).thenReturn("view");
+        when(request.getParameter("id")).thenReturn(null);
+
+        servlet.doGet(request, response);
+
+        verify(response).sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid exercise ID");
+        verify(exerciseService, never()).getExerciseById(anyLong());
+        verify(dispatcher, never()).forward(request, response);
+    }
+
+    @Test
+    public void testStudentViewExercise_BlankIdParam_ReturnsBadRequest400() throws Exception {
+        when(request.getParameter("action")).thenReturn("view");
+        when(request.getParameter("id")).thenReturn("   ");
+
+        servlet.doGet(request, response);
+
+        verify(response).sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid exercise ID");
+        verify(exerciseService, never()).getExerciseById(anyLong());
+        verify(dispatcher, never()).forward(request, response);
+    }
+
+    @Test
+    public void testStudentViewExercise_MalformedIdParam_ReturnsBadRequest400() throws Exception {
+        when(request.getParameter("action")).thenReturn("view");
+        when(request.getParameter("id")).thenReturn("abc");
+
+        servlet.doGet(request, response);
+
+        verify(response).sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid exercise ID");
+        verify(exerciseService, never()).getExerciseById(anyLong());
+        verify(dispatcher, never()).forward(request, response);
+    }
+
+    @Test
+    public void testStudentViewExercise_ZeroIdParam_ReturnsBadRequest400() throws Exception {
+        when(request.getParameter("action")).thenReturn("view");
+        when(request.getParameter("id")).thenReturn("0");
+
+        servlet.doGet(request, response);
+
+        verify(response).sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid exercise ID");
+        verify(exerciseService, never()).getExerciseById(anyLong());
+        verify(dispatcher, never()).forward(request, response);
+    }
+
+    @Test
+    public void testStudentViewExercise_NegativeIdParam_ReturnsBadRequest400() throws Exception {
+        when(request.getParameter("action")).thenReturn("view");
+        when(request.getParameter("id")).thenReturn("-10");
+
+        servlet.doGet(request, response);
+
+        verify(response).sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid exercise ID");
+        verify(exerciseService, never()).getExerciseById(anyLong());
+        verify(dispatcher, never()).forward(request, response);
+    }
+
+    @Test
+    public void testStudentViewExercise_DatabaseException_ReturnsInternalServerError500() throws Exception {
+        when(request.getParameter("action")).thenReturn("view");
+        when(request.getParameter("id")).thenReturn("1");
+
+        when(exerciseService.getExerciseById(1L))
+                .thenThrow(new com.codingplatform.exception.DatabaseException("Database connection failure", null));
+
+        servlet.doGet(request, response);
+
+        verify(response).sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Database error");
+        verify(dispatcher, never()).forward(request, response);
     }
 }
