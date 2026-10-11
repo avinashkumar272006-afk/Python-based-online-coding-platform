@@ -221,4 +221,37 @@ public class UserDAOImpl implements UserDAO {
             throw new DatabaseException("Error updating user profile", e);
         }
     }
+
+    @Override
+    public List<User> getUsersByRole(String role) throws DatabaseException {
+        List<User> users = new ArrayList<>();
+        String sql = "SELECT * FROM users WHERE role = ? ORDER BY created_at DESC";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             
+            pstmt.setString(1, role);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    User user;
+                    if ("ADMIN".equals(role)) {
+                        user = new Admin();
+                    } else if ("INSTRUCTOR".equals(role)) {
+                        user = new Instructor();
+                    } else {
+                        user = new Student();
+                    }
+                    user.setId(rs.getInt("id"));
+                    user.setName(rs.getString("name"));
+                    user.setEmail(rs.getString("email"));
+                    user.setPassword(""); 
+                    user.setRole(role);
+                    user.setCreatedAt(rs.getTimestamp("created_at"));
+                    users.add(user);
+                }
+            }
+        } catch (SQLException e) {
+            throw new DatabaseException("Error retrieving users by role: " + role, e);
+        }
+        return users;
+    }
 }

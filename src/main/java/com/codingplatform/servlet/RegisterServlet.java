@@ -47,10 +47,25 @@ public class RegisterServlet extends HttpServlet {
             return;
         }
 
+        if ("ADMIN".equalsIgnoreCase(role)) {
+            request.setAttribute("errorMessage", "Registration with ADMIN role is not permitted.");
+            request.getRequestDispatcher("/register.jsp").forward(request, response);
+            return;
+        }
+
+        if (role != null && !role.trim().isEmpty() && !"STUDENT".equalsIgnoreCase(role) && !"INSTRUCTOR".equalsIgnoreCase(role)) {
+            request.setAttribute("errorMessage", "Invalid role selected.");
+            request.getRequestDispatcher("/register.jsp").forward(request, response);
+            return;
+        }
+
+        String assignedRole = "STUDENT";
+        if ("INSTRUCTOR".equalsIgnoreCase(role)) {
+            assignedRole = "INSTRUCTOR";
+        }
+
         User user;
-        if ("ADMIN".equals(role)) {
-            user = new Admin();
-        } else if ("INSTRUCTOR".equals(role)) {
+        if ("INSTRUCTOR".equals(assignedRole)) {
             user = new Instructor();
         } else {
             user = new Student();
@@ -59,7 +74,7 @@ public class RegisterServlet extends HttpServlet {
         user.setName(name);
         user.setEmail(email);
         user.setPassword(password);
-        user.setRole(role);
+        user.setRole(assignedRole);
 
         try {
             boolean success = userService.registerUser(user);

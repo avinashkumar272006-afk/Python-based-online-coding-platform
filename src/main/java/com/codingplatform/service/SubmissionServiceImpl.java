@@ -39,6 +39,10 @@ public class SubmissionServiceImpl implements SubmissionService {
             throw new IllegalArgumentException("Exercise must exist.");
         }
 
+        if (!"APPROVED".equals(exercise.getStatus())) {
+            throw new IllegalArgumentException("Submissions are only allowed for approved exercises.");
+        }
+
         submission.setStatus("PENDING");
         return submissionDAO.createSubmission(submission);
     }
@@ -46,6 +50,25 @@ public class SubmissionServiceImpl implements SubmissionService {
     @Override
     public Submission getSubmissionById(long id) throws DatabaseException {
         return submissionDAO.getSubmissionById(id);
+    }
+
+    @Override
+    public Submission getSubmissionForInstructor(long submissionId, int instructorId) throws DatabaseException {
+        if (submissionId <= 0 || instructorId <= 0) {
+            throw new IllegalArgumentException("Invalid submission ID or instructor ID.");
+        }
+
+        Submission submission = submissionDAO.getSubmissionById(submissionId);
+        if (submission == null) {
+            return null;
+        }
+
+        Exercise exercise = exerciseDAO.getExerciseById(submission.getExerciseId());
+        if (exercise == null || exercise.getCreatedBy() != instructorId) {
+            throw new SecurityException("Instructor is not authorized to view this submission.");
+        }
+
+        return submission;
     }
 
     @Override

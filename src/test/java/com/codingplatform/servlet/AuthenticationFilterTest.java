@@ -89,4 +89,141 @@ public class AuthenticationFilterTest {
         verify(response).sendRedirect("/login.jsp");
         verify(chain, never()).doFilter(request, response);
     }
+
+    @Test
+    public void testUnauthenticatedUserCannotAccessMessagesRoute() throws Exception {
+        when(request.getRequestURI()).thenReturn("/messages");
+        when(request.getSession(false)).thenReturn(null);
+
+        filter.doFilter(request, response, chain);
+
+        verify(response).sendRedirect("/login.jsp");
+        verify(chain, never()).doFilter(request, response);
+    }
+
+    @Test
+    public void testUnauthenticatedUserCannotAccessMessagesListJsp() throws Exception {
+        when(request.getRequestURI()).thenReturn("/messages/list.jsp");
+        when(request.getSession(false)).thenReturn(null);
+
+        filter.doFilter(request, response, chain);
+
+        verify(response).sendRedirect("/login.jsp");
+        verify(chain, never()).doFilter(request, response);
+    }
+
+    @Test
+    public void testUnauthenticatedUserCannotAccessMessagesConversationJsp() throws Exception {
+        when(request.getRequestURI()).thenReturn("/messages/conversation.jsp");
+        when(request.getSession(false)).thenReturn(null);
+
+        filter.doFilter(request, response, chain);
+
+        verify(response).sendRedirect("/login.jsp");
+        verify(chain, never()).doFilter(request, response);
+    }
+
+    @Test
+    public void testStudentCanAccessMessagesRoute() throws Exception {
+        when(request.getRequestURI()).thenReturn("/messages");
+        when(request.getSession(false)).thenReturn(session);
+        when(session.getAttribute("userId")).thenReturn(1);
+        when(session.getAttribute("role")).thenReturn("STUDENT");
+
+        filter.doFilter(request, response, chain);
+
+        verify(response, never()).sendRedirect(anyString());
+        verify(chain).doFilter(request, response);
+    }
+
+    @Test
+    public void testStudentCanAccessMessagesConversationJsp() throws Exception {
+        when(request.getRequestURI()).thenReturn("/messages/conversation.jsp");
+        when(request.getSession(false)).thenReturn(session);
+        when(session.getAttribute("userId")).thenReturn(1);
+        when(session.getAttribute("role")).thenReturn("STUDENT");
+
+        filter.doFilter(request, response, chain);
+
+        verify(response, never()).sendRedirect(anyString());
+        verify(chain).doFilter(request, response);
+    }
+
+    @Test
+    public void testInstructorCanAccessMessagesRoute() throws Exception {
+        when(request.getRequestURI()).thenReturn("/messages");
+        when(request.getSession(false)).thenReturn(session);
+        when(session.getAttribute("userId")).thenReturn(2);
+        when(session.getAttribute("role")).thenReturn("INSTRUCTOR");
+
+        filter.doFilter(request, response, chain);
+
+        verify(response, never()).sendRedirect(anyString());
+        verify(chain).doFilter(request, response);
+    }
+
+    @Test
+    public void testInstructorCanAccessMessagesListJsp() throws Exception {
+        when(request.getRequestURI()).thenReturn("/messages/list.jsp");
+        when(request.getSession(false)).thenReturn(session);
+        when(session.getAttribute("userId")).thenReturn(2);
+        when(session.getAttribute("role")).thenReturn("INSTRUCTOR");
+
+        filter.doFilter(request, response, chain);
+
+        verify(response, never()).sendRedirect(anyString());
+        verify(chain).doFilter(request, response);
+    }
+
+    @Test
+    public void testAdminCannotAccessMessagesRoute() throws Exception {
+        when(request.getRequestURI()).thenReturn("/messages");
+        when(request.getSession(false)).thenReturn(session);
+        when(session.getAttribute("userId")).thenReturn(3);
+        when(session.getAttribute("role")).thenReturn("ADMIN");
+
+        filter.doFilter(request, response, chain);
+
+        verify(response).sendRedirect("/login.jsp");
+        verify(chain, never()).doFilter(request, response);
+    }
+
+    @Test
+    public void testAdminCannotAccessMessagesListJsp() throws Exception {
+        when(request.getRequestURI()).thenReturn("/messages/list.jsp");
+        when(request.getSession(false)).thenReturn(session);
+        when(session.getAttribute("userId")).thenReturn(3);
+        when(session.getAttribute("role")).thenReturn("ADMIN");
+
+        filter.doFilter(request, response, chain);
+
+        verify(response).sendRedirect("/login.jsp");
+        verify(chain, never()).doFilter(request, response);
+    }
+
+    @Test
+    public void testAdminCannotAccessMessagesConversationJsp() throws Exception {
+        when(request.getRequestURI()).thenReturn("/messages/conversation.jsp");
+        when(request.getSession(false)).thenReturn(session);
+        when(session.getAttribute("userId")).thenReturn(3);
+        when(session.getAttribute("role")).thenReturn("ADMIN");
+
+        filter.doFilter(request, response, chain);
+
+        verify(response).sendRedirect("/login.jsp");
+        verify(chain, never()).doFilter(request, response);
+    }
+
+    @Test
+    public void testUnsupportedRoleCannotAccessMessagesRoute() throws Exception {
+        when(request.getRequestURI()).thenReturn("/messages");
+        when(request.getSession(false)).thenReturn(session);
+        when(session.getAttribute("userId")).thenReturn(4);
+        when(session.getAttribute("role")).thenReturn("GUEST");
+
+        filter.doFilter(request, response, chain);
+
+        verify(response).sendRedirect("/login.jsp");
+        verify(chain, never()).doFilter(request, response);
+    }
 }

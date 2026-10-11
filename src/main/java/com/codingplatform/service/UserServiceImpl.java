@@ -29,7 +29,10 @@ public class UserServiceImpl implements UserService {
         if (user.getPassword() == null || user.getPassword().length() < 6) {
             throw new IllegalArgumentException("Password is required and must be at least 6 characters.");
         }
-        if (user.getRole() == null || (!user.getRole().equals("STUDENT") && !user.getRole().equals("INSTRUCTOR") && !user.getRole().equals("ADMIN"))) {
+        if (user instanceof com.codingplatform.model.Admin || "ADMIN".equalsIgnoreCase(user.getRole())) {
+            throw new IllegalArgumentException("Registration with ADMIN role is not permitted.");
+        }
+        if (user.getRole() == null || (!user.getRole().equals("STUDENT") && !user.getRole().equals("INSTRUCTOR"))) {
             throw new IllegalArgumentException("Invalid role selected.");
         }
         

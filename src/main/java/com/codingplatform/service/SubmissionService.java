@@ -7,6 +7,7 @@ import java.util.List;
 public interface SubmissionService {
     boolean createSubmission(Submission submission) throws DatabaseException;
     Submission getSubmissionById(long id) throws DatabaseException;
+    Submission getSubmissionForInstructor(long submissionId, int instructorId) throws DatabaseException;
     List<Submission> getSubmissionsByStudent(int studentId) throws DatabaseException;
     List<Submission> getSubmissionsByExercise(long exerciseId) throws DatabaseException;
     List<Submission> getSubmissionsByInstructor(int instructorId) throws DatabaseException;

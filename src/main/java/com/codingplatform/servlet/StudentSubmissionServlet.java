@@ -28,8 +28,27 @@ public class StudentSubmissionServlet extends HttpServlet {
 
     @Override
     public void init() throws ServletException {
-        submissionService = new SubmissionServiceImpl(new SubmissionDAOImpl(), new UserDAOImpl(), new ExerciseDAOImpl());
-        exerciseService = new ExerciseServiceImpl(new ExerciseDAOImpl(), new UserDAOImpl());
+        if (submissionService == null) {
+            submissionService = new SubmissionServiceImpl(new SubmissionDAOImpl(), new UserDAOImpl(), new ExerciseDAOImpl());
+        }
+        if (exerciseService == null) {
+            exerciseService = new ExerciseServiceImpl(new ExerciseDAOImpl(), new UserDAOImpl());
+        }
+    }
+
+    public StudentSubmissionServlet() {}
+
+    public StudentSubmissionServlet(SubmissionService submissionService, ExerciseService exerciseService) {
+        this.submissionService = submissionService;
+        this.exerciseService = exerciseService;
+    }
+
+    public void setSubmissionService(SubmissionService submissionService) {
+        this.submissionService = submissionService;
+    }
+
+    public void setExerciseService(ExerciseService exerciseService) {
+        this.exerciseService = exerciseService;
     }
 
     @Override
@@ -62,8 +81,8 @@ public class StudentSubmissionServlet extends HttpServlet {
                 try {
                     long exerciseId = Long.parseLong(exerciseIdParam);
                     Exercise exercise = exerciseService.getExerciseById(exerciseId);
-                    if (exercise == null) {
-                        response.sendError(HttpServletResponse.SC_NOT_FOUND, "Exercise not found");
+                    if (exercise == null || !"APPROVED".equals(exercise.getStatus())) {
+                        response.sendError(HttpServletResponse.SC_NOT_FOUND, "Exercise not found or not approved.");
                         return;
                     }
                     request.setAttribute("exercise", exercise);
@@ -113,14 +132,20 @@ public class StudentSubmissionServlet extends HttpServlet {
             } catch (NumberFormatException e) {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid input");
             } catch (IllegalArgumentException e) {
-                request.setAttribute("error", e.getMessage());
-                // Reload the exercise details to populate the form again
+                // If the error was due to an unapproved or nonexistent exercise, do not show the submit form
                 try {
                     long exerciseId = Long.parseLong(exerciseIdParam);
                     Exercise exercise = exerciseService.getExerciseById(exerciseId);
+                    if (exercise == null || !"APPROVED".equals(exercise.getStatus())) {
+                        response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+                        return;
+                    }
+                    request.setAttribute("error", e.getMessage());
                     request.setAttribute("exercise", exercise);
-                } catch (NumberFormatException | DatabaseException ignored) {}
-                request.getRequestDispatcher("/student/submit-exercise.jsp").forward(request, response);
+                    request.getRequestDispatcher("/student/submit-exercise.jsp").forward(request, response);
+                } catch (NumberFormatException | DatabaseException ex) {
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+                }
             } catch (DatabaseException e) {
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Database error");
             }

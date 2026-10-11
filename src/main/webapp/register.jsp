@@ -1,4 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -24,6 +25,7 @@
             <div class="error-msg"><%= error %></div>
         <% } %>
         <form action="register" method="post">
+            <input type="hidden" name="csrfToken" value="<c:out value='${csrfToken != null ? csrfToken : sessionScope.csrfToken}' />" />
             <input type="text" name="name" placeholder="Full Name" required>
             <input type="email" name="email" placeholder="Email" required>
             <input type="password" name="password" placeholder="Password" required minlength="6">
@@ -31,7 +33,6 @@
             <select name="role">
                 <option value="STUDENT">Student</option>
                 <option value="INSTRUCTOR">Instructor</option>
-                <option value="ADMIN">Admin</option>
             </select>
             <button type="submit">Register</button>
         </form>

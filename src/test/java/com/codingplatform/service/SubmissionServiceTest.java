@@ -52,11 +52,13 @@ public class SubmissionServiceTest {
         Exercise ex1 = new Exercise();
         ex1.setId(100L);
         ex1.setCreatedBy(2);
+        ex1.setStatus("APPROVED");
         mockExerciseDAO.addExercise(ex1);
         
         Exercise ex2 = new Exercise();
         ex2.setId(200L);
         ex2.setCreatedBy(3);
+        ex2.setStatus("APPROVED");
         mockExerciseDAO.addExercise(ex2);
     }
 
@@ -109,6 +111,57 @@ public class SubmissionServiceTest {
         
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> submissionService.createSubmission(sub));
         assertEquals("Exercise must exist.", ex.getMessage());
+    }
+
+    @Test
+    public void testPendingExerciseRejection() throws DatabaseException {
+        Exercise pendingEx = new Exercise();
+        pendingEx.setId(300L);
+        pendingEx.setCreatedBy(2);
+        pendingEx.setStatus("PENDING");
+        mockExerciseDAO.addExercise(pendingEx);
+
+        Submission sub = new Submission();
+        sub.setExerciseId(300L);
+        sub.setStudentId(1);
+        sub.setSubmittedCode("print('Hello World')");
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> submissionService.createSubmission(sub));
+        assertEquals("Submissions are only allowed for approved exercises.", ex.getMessage());
+    }
+
+    @Test
+    public void testRejectedExerciseRejection() throws DatabaseException {
+        Exercise rejectedEx = new Exercise();
+        rejectedEx.setId(400L);
+        rejectedEx.setCreatedBy(2);
+        rejectedEx.setStatus("REJECTED");
+        mockExerciseDAO.addExercise(rejectedEx);
+
+        Submission sub = new Submission();
+        sub.setExerciseId(400L);
+        sub.setStudentId(1);
+        sub.setSubmittedCode("print('Hello World')");
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> submissionService.createSubmission(sub));
+        assertEquals("Submissions are only allowed for approved exercises.", ex.getMessage());
+    }
+
+    @Test
+    public void testNullStatusExerciseRejection() throws DatabaseException {
+        Exercise nullStatusEx = new Exercise();
+        nullStatusEx.setId(500L);
+        nullStatusEx.setCreatedBy(2);
+        nullStatusEx.setStatus(null);
+        mockExerciseDAO.addExercise(nullStatusEx);
+
+        Submission sub = new Submission();
+        sub.setExerciseId(500L);
+        sub.setStudentId(1);
+        sub.setSubmittedCode("print('Hello World')");
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> submissionService.createSubmission(sub));
+        assertEquals("Submissions are only allowed for approved exercises.", ex.getMessage());
     }
 
     @Test
@@ -189,6 +242,72 @@ public class SubmissionServiceTest {
             submissionService.reviewSubmission(10L, 2, "Great job", "REVIEWED", -5);
         });
         assertEquals("Score must be between 0 and 100.", ex.getMessage());
+    }
+
+    @Test
+    public void testInstructorCanViewSubmissionForOwnExercise() throws DatabaseException {
+        Submission sub = new Submission();
+        sub.setId(10L);
+        sub.setExerciseId(100L); // created by instructor 2
+        sub.setStudentId(1);
+        sub.setSubmittedCode("code");
+        mockSubmissionDAO.addSubmission(sub);
+
+        Submission result = submissionService.getSubmissionForInstructor(10L, 2);
+        assertNotNull(result);
+        assertEquals(10L, result.getId());
+    }
+
+    @Test
+    public void testInstructorCannotViewSubmissionForAnotherInstructorExercise() {
+        Submission sub = new Submission();
+        sub.setId(10L);
+        sub.setExerciseId(100L); // created by instructor 2
+        sub.setStudentId(1);
+        sub.setSubmittedCode("code");
+        mockSubmissionDAO.addSubmission(sub);
+
+        SecurityException ex = assertThrows(SecurityException.class, () -> {
+            submissionService.getSubmissionForInstructor(10L, 3);
+        });
+        assertEquals("Instructor is not authorized to view this submission.", ex.getMessage());
+    }
+
+    @Test
+    public void testInstructorViewNonexistentSubmission_ReturnsNull() throws DatabaseException {
+        Submission result = submissionService.getSubmissionForInstructor(999L, 2);
+        assertNull(result);
+    }
+
+    @Test
+    public void testInstructorViewSubmissionWithMissingExercise_ThrowsSecurityException() {
+        Submission sub = new Submission();
+        sub.setId(20L);
+        sub.setExerciseId(9999L); // exercise does not exist
+        sub.setStudentId(1);
+        sub.setSubmittedCode("code");
+        mockSubmissionDAO.addSubmission(sub);
+
+        SecurityException ex = assertThrows(SecurityException.class, () -> {
+            submissionService.getSubmissionForInstructor(20L, 2);
+        });
+        assertEquals("Instructor is not authorized to view this submission.", ex.getMessage());
+    }
+
+    @Test
+    public void testInstructorViewSubmission_InvalidIds() {
+        assertThrows(IllegalArgumentException.class, () -> {
+            submissionService.getSubmissionForInstructor(0L, 2);
+        });
+        assertThrows(IllegalArgumentException.class, () -> {
+            submissionService.getSubmissionForInstructor(-1L, 2);
+        });
+        assertThrows(IllegalArgumentException.class, () -> {
+            submissionService.getSubmissionForInstructor(10L, 0);
+        });
+        assertThrows(IllegalArgumentException.class, () -> {
+            submissionService.getSubmissionForInstructor(10L, -1);
+        });
     }
 }
 

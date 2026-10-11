@@ -42,6 +42,23 @@ public class ProgressServiceImplTest {
         assertNotNull(progress);
         assertEquals(10, progress.getTotalExercises());
         assertEquals(5, progress.getSubmittedExercises());
+        assertEquals(50, progress.getProgressPercentage());
+    }
+
+    @Test
+    public void testGetStudentProgressZeroApprovedExercises() throws DatabaseException {
+        User user = new com.codingplatform.model.Student();
+        user.setId(1);
+        user.setRole("STUDENT");
+        
+        when(userDAO.getUserById(1)).thenReturn(user);
+        when(progressDAO.getStudentProgress(1)).thenReturn(new StudentProgress(0, 0, 0, 0, null));
+        
+        StudentProgress progress = progressService.getStudentProgress(1);
+        assertNotNull(progress);
+        assertEquals(0, progress.getTotalExercises());
+        assertEquals(0, progress.getSubmittedExercises());
+        assertEquals(0, progress.getProgressPercentage());
     }
 
     @Test

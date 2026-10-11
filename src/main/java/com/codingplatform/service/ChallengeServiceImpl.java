@@ -70,6 +70,9 @@ public class ChallengeServiceImpl implements ChallengeService {
 
     @Override
     public void joinChallenge(long challengeId, long studentId) throws DatabaseException, IllegalArgumentException {
+        if (challengeId <= 0 || studentId <= 0) {
+            throw new IllegalArgumentException("Invalid challenge ID or student ID");
+        }
         Challenge challenge = challengeDAO.getChallengeById(challengeId);
         if (challenge == null) {
             throw new IllegalArgumentException("Challenge not found");
@@ -86,6 +89,11 @@ public class ChallengeServiceImpl implements ChallengeService {
             throw new IllegalArgumentException("Challenge has already ended");
         }
         
+        ChallengeParticipant existing = participantDAO.getParticipant(challengeId, studentId);
+        if (existing != null) {
+            throw new IllegalArgumentException("Already joined this challenge.");
+        }
+        
         ChallengeParticipant cp = new ChallengeParticipant();
         cp.setChallengeId(challengeId);
         cp.setStudentId(studentId);
@@ -96,18 +104,52 @@ public class ChallengeServiceImpl implements ChallengeService {
 
     @Override
     public List<ChallengeParticipant> getStudentChallenges(long studentId) throws DatabaseException {
+        if (studentId <= 0) {
+            throw new IllegalArgumentException("Invalid student ID");
+        }
         return participantDAO.getParticipantsByStudent(studentId);
     }
 
     @Override
     public void updateParticipantStatus(long challengeId, long studentId, String status) throws DatabaseException, IllegalArgumentException {
+        if (challengeId <= 0 || studentId <= 0) {
+            throw new IllegalArgumentException("Invalid challenge ID or student ID");
+        }
         if (!"COMPLETED".equals(status) && !"DROPPED".equals(status)) {
             throw new IllegalArgumentException("Invalid status");
         }
+        
+        Challenge challenge = challengeDAO.getChallengeById(challengeId);
+        if (challenge == null) {
+            throw new IllegalArgumentException("Challenge not found");
+        }
+        if (!"APPROVED".equals(challenge.getStatus())) {
+            throw new IllegalArgumentException("Challenge is not active");
+        }
+        
+        long now = System.currentTimeMillis();
+        if (challenge.getStartDate() != null && now < challenge.getStartDate().getTime()) {
+            throw new IllegalArgumentException("Challenge has not started yet");
+        }
+        if ("COMPLETED".equals(status) && challenge.getEndDate() != null && now > challenge.getEndDate().getTime()) {
+            throw new IllegalArgumentException("Challenge has already ended");
+        }
+        
         ChallengeParticipant cp = participantDAO.getParticipant(challengeId, studentId);
         if (cp == null) {
             throw new IllegalArgumentException("Not joined this challenge");
         }
+        
+        if (!"JOINED".equals(cp.getStatus())) {
+            if ("COMPLETED".equals(cp.getStatus())) {
+                throw new IllegalArgumentException("Challenge is already completed");
+            } else if ("DROPPED".equals(cp.getStatus())) {
+                throw new IllegalArgumentException("Cannot modify dropped challenge");
+            } else {
+                throw new IllegalArgumentException("Invalid participant status: " + cp.getStatus());
+            }
+        }
+        
         participantDAO.updateParticipantStatus(challengeId, studentId, status);
     }
 }

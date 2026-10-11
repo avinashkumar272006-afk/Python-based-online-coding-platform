@@ -36,12 +36,23 @@ public class StudentChallengeServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         HttpSession session = request.getSession(false);
-        if (session == null || !"STUDENT".equals(session.getAttribute("role"))) {
+        if (session == null || session.getAttribute("userId") == null || !"STUDENT".equals(session.getAttribute("role"))) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN, "Unauthorized");
             return;
         }
 
-        long studentId = ((Number) session.getAttribute("userId")).longValue();
+        long studentId;
+        try {
+            studentId = ((Number) session.getAttribute("userId")).longValue();
+            if (studentId <= 0) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Unauthorized");
+                return;
+            }
+        } catch (Exception e) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Unauthorized");
+            return;
+        }
+
         String path = request.getServletPath();
 
         try {
@@ -62,22 +73,44 @@ public class StudentChallengeServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         HttpSession session = request.getSession(false);
-        if (session == null || !"STUDENT".equals(session.getAttribute("role"))) {
+        if (session == null || session.getAttribute("userId") == null || !"STUDENT".equals(session.getAttribute("role"))) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN, "Unauthorized");
             return;
         }
 
-        long studentId = ((Number) session.getAttribute("userId")).longValue();
+        long studentId;
+        try {
+            studentId = ((Number) session.getAttribute("userId")).longValue();
+            if (studentId <= 0) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Unauthorized");
+                return;
+            }
+        } catch (Exception e) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Unauthorized");
+            return;
+        }
+
         String action = request.getParameter("action");
         String idStr = request.getParameter("id");
 
-        if (idStr == null || idStr.isEmpty()) {
+        if (idStr == null || idStr.trim().isEmpty()) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing challenge ID");
             return;
         }
 
+        long challengeId;
         try {
-            long challengeId = Long.parseLong(idStr);
+            challengeId = Long.parseLong(idStr.trim());
+            if (challengeId <= 0) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid challenge ID");
+                return;
+            }
+        } catch (NumberFormatException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid ID format");
+            return;
+        }
+
+        try {
             if ("join".equals(action)) {
                 challengeService.joinChallenge(challengeId, studentId);
                 response.sendRedirect(request.getContextPath() + "/student/my-challenges?success=joined");
@@ -90,14 +123,22 @@ public class StudentChallengeServlet extends HttpServlet {
             } else {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid action");
             }
-        } catch (NumberFormatException e) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid ID format");
         } catch (DatabaseException e) {
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Database error");
         } catch (IllegalArgumentException e) {
-            // Handle duplicate join and invalid IDs gracefully
+            // Handle duplicate join, invalid transitions, date restrictions, etc. gracefully
             request.setAttribute("error", e.getMessage());
-            doGet(request, response);
+            if ("complete".equals(action) || "drop".equals(action)) {
+                try {
+                    List<ChallengeParticipant> myChallenges = challengeService.getStudentChallenges(studentId);
+                    request.setAttribute("myChallenges", myChallenges);
+                    request.getRequestDispatcher("/student/my-challenges.jsp").forward(request, response);
+                } catch (DatabaseException de) {
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Database error");
+                }
+            } else {
+                doGet(request, response);
+            }
         }
     }
 }

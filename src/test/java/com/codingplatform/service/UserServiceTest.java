@@ -79,6 +79,63 @@ public class UserServiceTest {
         });
         assertEquals("Name is required.", ex.getMessage());
     }
+
+    @Test
+    public void testRegisterUser_BlocksAdminModel() {
+        User admin = new com.codingplatform.model.Admin();
+        admin.setName("Admin User");
+        admin.setEmail("admin@example.com");
+        admin.setPassword("admin123");
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
+            userService.registerUser(admin);
+        });
+        assertEquals("Registration with ADMIN role is not permitted.", ex.getMessage());
+        assertEquals(0, mockUserDAO.usersCreated);
+    }
+
+    @Test
+    public void testRegisterUser_BlocksAdminRoleString() {
+        User user = new Student();
+        user.setName("Attacker");
+        user.setEmail("attacker@example.com");
+        user.setPassword("password123");
+        user.setRole("ADMIN");
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
+            userService.registerUser(user);
+        });
+        assertEquals("Registration with ADMIN role is not permitted.", ex.getMessage());
+        assertEquals(0, mockUserDAO.usersCreated);
+    }
+
+    @Test
+    public void testRegisterUser_AllowsInstructorRole() throws DatabaseException {
+        User instructor = new com.codingplatform.model.Instructor();
+        instructor.setName("Instructor Jane");
+        instructor.setEmail("instructor@example.com");
+        instructor.setPassword("password123");
+
+        boolean result = userService.registerUser(instructor);
+        assertTrue(result);
+        assertEquals(1, mockUserDAO.usersCreated);
+        assertEquals("INSTRUCTOR", mockUserDAO.getUserByEmail("instructor@example.com").getRole());
+    }
+
+    @Test
+    public void testRegisterUser_NullRoleThrowsException() {
+        User user = new Student();
+        user.setName("Null Role User");
+        user.setEmail("nullrole@example.com");
+        user.setPassword("password123");
+        user.setRole(null);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
+            userService.registerUser(user);
+        });
+        assertEquals("Invalid role selected.", ex.getMessage());
+        assertEquals(0, mockUserDAO.usersCreated);
+    }
 }
 
 // Simple manual mock for UserDAO

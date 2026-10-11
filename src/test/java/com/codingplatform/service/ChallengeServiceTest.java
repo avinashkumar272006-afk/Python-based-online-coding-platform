@@ -114,10 +114,147 @@ public class ChallengeServiceTest {
 
     @Test
     public void testUpdateParticipantStatus_Complete() throws Exception {
+        Challenge c = new Challenge();
+        c.setId(1L);
+        c.setStatus("APPROVED");
+        when(challengeDAO.getChallengeById(1L)).thenReturn(c);
+
         ChallengeParticipant cp = new ChallengeParticipant();
+        cp.setStatus("JOINED");
         when(participantDAO.getParticipant(1L, 2L)).thenReturn(cp);
         
         challengeService.updateParticipantStatus(1L, 2L, "COMPLETED");
         verify(participantDAO).updateParticipantStatus(1L, 2L, "COMPLETED");
+    }
+
+    @Test
+    public void testUpdateParticipantStatus_Drop() throws Exception {
+        Challenge c = new Challenge();
+        c.setId(1L);
+        c.setStatus("APPROVED");
+        when(challengeDAO.getChallengeById(1L)).thenReturn(c);
+
+        ChallengeParticipant cp = new ChallengeParticipant();
+        cp.setStatus("JOINED");
+        when(participantDAO.getParticipant(1L, 2L)).thenReturn(cp);
+        
+        challengeService.updateParticipantStatus(1L, 2L, "DROPPED");
+        verify(participantDAO).updateParticipantStatus(1L, 2L, "DROPPED");
+    }
+
+    @Test
+    public void testUpdateParticipantStatus_ChallengeNotFound() throws Exception {
+        when(challengeDAO.getChallengeById(1L)).thenReturn(null);
+        
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> 
+            challengeService.updateParticipantStatus(1L, 2L, "COMPLETED")
+        );
+        assertEquals("Challenge not found", ex.getMessage());
+    }
+
+    @Test
+    public void testUpdateParticipantStatus_ChallengeNotApproved() throws Exception {
+        Challenge c = new Challenge();
+        c.setId(1L);
+        c.setStatus("PENDING");
+        when(challengeDAO.getChallengeById(1L)).thenReturn(c);
+
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> 
+            challengeService.updateParticipantStatus(1L, 2L, "COMPLETED")
+        );
+        assertEquals("Challenge is not active", ex.getMessage());
+    }
+
+    @Test
+    public void testUpdateParticipantStatus_BeforeStartDate() throws Exception {
+        Challenge c = new Challenge();
+        c.setId(1L);
+        c.setStatus("APPROVED");
+        c.setStartDate(new Timestamp(System.currentTimeMillis() + 100000));
+        when(challengeDAO.getChallengeById(1L)).thenReturn(c);
+
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> 
+            challengeService.updateParticipantStatus(1L, 2L, "COMPLETED")
+        );
+        assertEquals("Challenge has not started yet", ex.getMessage());
+    }
+
+    @Test
+    public void testUpdateParticipantStatus_Complete_AfterEndDate() throws Exception {
+        Challenge c = new Challenge();
+        c.setId(1L);
+        c.setStatus("APPROVED");
+        c.setEndDate(new Timestamp(System.currentTimeMillis() - 100000));
+        when(challengeDAO.getChallengeById(1L)).thenReturn(c);
+
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> 
+            challengeService.updateParticipantStatus(1L, 2L, "COMPLETED")
+        );
+        assertEquals("Challenge has already ended", ex.getMessage());
+    }
+
+    @Test
+    public void testUpdateParticipantStatus_NotJoined() throws Exception {
+        Challenge c = new Challenge();
+        c.setId(1L);
+        c.setStatus("APPROVED");
+        when(challengeDAO.getChallengeById(1L)).thenReturn(c);
+        when(participantDAO.getParticipant(1L, 2L)).thenReturn(null);
+
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> 
+            challengeService.updateParticipantStatus(1L, 2L, "COMPLETED")
+        );
+        assertEquals("Not joined this challenge", ex.getMessage());
+    }
+
+    @Test
+    public void testUpdateParticipantStatus_AlreadyCompleted_PreventsDuplicate() throws Exception {
+        Challenge c = new Challenge();
+        c.setId(1L);
+        c.setStatus("APPROVED");
+        when(challengeDAO.getChallengeById(1L)).thenReturn(c);
+
+        ChallengeParticipant cp = new ChallengeParticipant();
+        cp.setStatus("COMPLETED");
+        when(participantDAO.getParticipant(1L, 2L)).thenReturn(cp);
+
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> 
+            challengeService.updateParticipantStatus(1L, 2L, "COMPLETED")
+        );
+        assertEquals("Challenge is already completed", ex.getMessage());
+    }
+
+    @Test
+    public void testUpdateParticipantStatus_AlreadyDropped_PreventsCompletion() throws Exception {
+        Challenge c = new Challenge();
+        c.setId(1L);
+        c.setStatus("APPROVED");
+        when(challengeDAO.getChallengeById(1L)).thenReturn(c);
+
+        ChallengeParticipant cp = new ChallengeParticipant();
+        cp.setStatus("DROPPED");
+        when(participantDAO.getParticipant(1L, 2L)).thenReturn(cp);
+
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> 
+            challengeService.updateParticipantStatus(1L, 2L, "COMPLETED")
+        );
+        assertEquals("Cannot modify dropped challenge", ex.getMessage());
+    }
+
+    @Test
+    public void testUpdateParticipantStatus_InvalidStatus() {
+        assertThrows(IllegalArgumentException.class, () -> 
+            challengeService.updateParticipantStatus(1L, 2L, "UNKNOWN")
+        );
+    }
+
+    @Test
+    public void testUpdateParticipantStatus_InvalidIds() {
+        assertThrows(IllegalArgumentException.class, () -> 
+            challengeService.updateParticipantStatus(-1L, 2L, "COMPLETED")
+        );
+        assertThrows(IllegalArgumentException.class, () -> 
+            challengeService.updateParticipantStatus(1L, 0L, "COMPLETED")
+        );
     }
 }

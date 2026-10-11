@@ -13,4 +13,17 @@ public interface UserDAO {
     boolean updateUserRole(int userId, String newRole) throws DatabaseException;
     int countAdmins() throws DatabaseException;
     boolean updateUserProfile(int userId, String name, String email) throws DatabaseException;
+
+    default List<User> getUsersByRole(String role) throws DatabaseException {
+        List<User> filtered = new java.util.ArrayList<>();
+        List<User> all = getAllUsers();
+        if (all != null) {
+            for (User u : all) {
+                if (role != null && role.equals(u.getRole())) {
+                    filtered.add(u);
+                }
+            }
+        }
+        return filtered;
+    }
 }

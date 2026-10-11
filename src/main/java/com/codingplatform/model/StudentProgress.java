@@ -58,9 +58,10 @@ public class StudentProgress {
     }
 
     public int getProgressPercentage() {
-        if (totalExercises == 0) {
+        if (totalExercises <= 0) {
             return 0;
         }
-        return (int) (((double) submittedExercises / totalExercises) * 100);
+        int percentage = (int) (((double) submittedExercises / totalExercises) * 100);
+        return Math.min(100, Math.max(0, percentage));
     }
 }

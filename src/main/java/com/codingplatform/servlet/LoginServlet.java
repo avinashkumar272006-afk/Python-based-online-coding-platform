@@ -31,6 +31,9 @@ public class LoginServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        if ("true".equals(request.getParameter("logout"))) {
+            request.setAttribute("successMessage", "You have been successfully logged out.");
+        }
         request.getRequestDispatcher("/login.jsp").forward(request, response);
     }
 
@@ -42,12 +45,20 @@ public class LoginServlet extends HttpServlet {
         try {
             User user = userService.authenticateUser(email, password);
             if (user != null) {
-                // Successful login
+                // Prevent session fixation by invalidating pre-existing session
+                HttpSession existingSession = request.getSession(false);
+                if (existingSession != null) {
+                    existingSession.invalidate();
+                }
+
                 HttpSession session = request.getSession(true);
                 session.setAttribute("userId", user.getId());
                 session.setAttribute("name", user.getName());
                 session.setAttribute("email", user.getEmail());
                 session.setAttribute("role", user.getRole());
+                
+                // Initialize fresh CSRF token for the authenticated session
+                com.codingplatform.security.CsrfUtil.refreshToken(session);
                 
                 response.sendRedirect(request.getContextPath() + user.getDashboardUrl());
             } else {

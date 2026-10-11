@@ -13,6 +13,7 @@
         <!-- Setting compiler release to 26 -->
         <maven.compiler.release>26</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <live.db.test>false</live.db.test>
     </properties>
 
     <dependencies>
@@ -53,6 +54,18 @@
             <artifactId>jbcrypt</artifactId>
             <version>0.4</version>
         </dependency>
+        <!-- HikariCP Connection Pool -->
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+            <version>5.1.0</version>
+        </dependency>
+        <!-- SLF4J Simple Logger implementation -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>1.7.36</version>
+        </dependency>
         <!-- JUnit 5 -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -73,6 +86,13 @@
             <version>5.14.2</version>
             <scope>test</scope>
         </dependency>
+        <!-- H2 Database for In-Memory JDBC Connection Pool Tests -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <version>2.3.232</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -88,6 +108,9 @@
                 <version>3.2.5</version>
                 <configuration>
                     <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+                    <systemPropertyVariables>
+                        <live.db.test>${live.db.test}</live.db.test>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
             <plugin>
@@ -116,4 +139,13 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>live-db</id>
+            <properties>
+                <live.db.test>true</live.db.test>
+            </properties>
+        </profile>
+    </profiles>
 </project>

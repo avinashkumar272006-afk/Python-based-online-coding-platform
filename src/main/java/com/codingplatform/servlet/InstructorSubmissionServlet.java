@@ -22,9 +22,21 @@ public class InstructorSubmissionServlet extends HttpServlet {
 
     private SubmissionService submissionService;
 
+    public InstructorSubmissionServlet() {}
+
+    public InstructorSubmissionServlet(SubmissionService submissionService) {
+        this.submissionService = submissionService;
+    }
+
+    public void setSubmissionService(SubmissionService submissionService) {
+        this.submissionService = submissionService;
+    }
+
     @Override
     public void init() throws ServletException {
-        submissionService = new SubmissionServiceImpl(new SubmissionDAOImpl(), new UserDAOImpl(), new ExerciseDAOImpl());
+        if (submissionService == null) {
+            submissionService = new SubmissionServiceImpl(new SubmissionDAOImpl(), new UserDAOImpl(), new ExerciseDAOImpl());
+        }
     }
 
     @Override
@@ -53,23 +65,31 @@ public class InstructorSubmissionServlet extends HttpServlet {
             }
         } else if ("/instructor/submission/review".equals(path)) {
             String submissionIdParam = request.getParameter("id");
-            if (submissionIdParam != null) {
-                try {
-                    long submissionId = Long.parseLong(submissionIdParam);
-                    Submission submission = submissionService.getSubmissionById(submissionId);
-                    if (submission == null) {
-                        response.sendError(HttpServletResponse.SC_NOT_FOUND, "Submission not found");
-                        return;
-                    }
-                    request.setAttribute("submission", submission);
-                    request.getRequestDispatcher("/instructor/review-submission.jsp").forward(request, response);
-                } catch (NumberFormatException e) {
-                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid submission ID");
-                } catch (DatabaseException e) {
-                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Database error");
-                }
-            } else {
+            if (submissionIdParam == null || submissionIdParam.trim().isEmpty()) {
                 response.sendRedirect(request.getContextPath() + "/instructor/submissions");
+                return;
+            }
+
+            try {
+                long submissionId = Long.parseLong(submissionIdParam.trim());
+                if (submissionId <= 0) {
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid submission ID");
+                    return;
+                }
+
+                Submission submission = submissionService.getSubmissionForInstructor(submissionId, userId);
+                if (submission == null) {
+                    response.sendError(HttpServletResponse.SC_NOT_FOUND, "Submission not found");
+                    return;
+                }
+                request.setAttribute("submission", submission);
+                request.getRequestDispatcher("/instructor/review-submission.jsp").forward(request, response);
+            } catch (NumberFormatException e) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid submission ID");
+            } catch (SecurityException e) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied");
+            } catch (DatabaseException e) {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Database error");
             }
         }
     }
@@ -96,8 +116,18 @@ public class InstructorSubmissionServlet extends HttpServlet {
             String status = request.getParameter("status");
             String scoreParam = request.getParameter("score");
 
+            if (submissionIdParam == null || submissionIdParam.trim().isEmpty()) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid input");
+                return;
+            }
+
             try {
-                long submissionId = Long.parseLong(submissionIdParam);
+                long submissionId = Long.parseLong(submissionIdParam.trim());
+                if (submissionId <= 0) {
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid input");
+                    return;
+                }
+
                 Integer score = null;
                 if (scoreParam != null && !scoreParam.trim().isEmpty()) {
                     score = Integer.parseInt(scoreParam.trim());
@@ -108,12 +138,20 @@ public class InstructorSubmissionServlet extends HttpServlet {
             } catch (NumberFormatException e) {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid input");
             } catch (IllegalArgumentException e) {
+                if ("Instructor can only review submissions for exercises they created.".equals(e.getMessage())) {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied");
+                    return;
+                }
+                if ("Submission does not exist.".equals(e.getMessage())) {
+                    response.sendError(HttpServletResponse.SC_NOT_FOUND, "Submission not found");
+                    return;
+                }
                 request.setAttribute("error", e.getMessage());
                 try {
-                    long submissionId = Long.parseLong(submissionIdParam);
-                    Submission submission = submissionService.getSubmissionById(submissionId);
+                    long submissionId = Long.parseLong(submissionIdParam.trim());
+                    Submission submission = submissionService.getSubmissionForInstructor(submissionId, userId);
                     request.setAttribute("submission", submission);
-                } catch (NumberFormatException | DatabaseException ignored) {}
+                } catch (Exception ignored) {}
                 request.getRequestDispatcher("/instructor/review-submission.jsp").forward(request, response);
             } catch (DatabaseException e) {
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Database error");

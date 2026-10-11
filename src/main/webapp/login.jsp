@@ -1,4 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -20,6 +21,9 @@
         <h2>Login</h2>
         <% 
             String success = (String) request.getAttribute("successMessage");
+            if (success == null && "true".equals(request.getParameter("logout"))) {
+                success = "You have been successfully logged out.";
+            }
             if (success != null) {
         %>
             <div class="success-msg"><%= success %></div>
@@ -31,6 +35,7 @@
             <div class="error-msg"><%= error %></div>
         <% } %>
         <form action="login" method="post">
+            <input type="hidden" name="csrfToken" value="<c:out value='${csrfToken != null ? csrfToken : sessionScope.csrfToken}' />" />
             <input type="email" name="email" placeholder="Email" required>
             <input type="password" name="password" placeholder="Password" required>
             <button type="submit">Login</button>

@@ -23,7 +23,19 @@ public class InstructorExerciseServlet extends HttpServlet {
 
     @Override
     public void init() throws ServletException {
-        exerciseService = new ExerciseServiceImpl(new ExerciseDAOImpl(), new com.codingplatform.daoimpl.UserDAOImpl());
+        if (exerciseService == null) {
+            exerciseService = new ExerciseServiceImpl(new ExerciseDAOImpl(), new com.codingplatform.daoimpl.UserDAOImpl());
+        }
+    }
+
+    public InstructorExerciseServlet() {}
+
+    public InstructorExerciseServlet(ExerciseService exerciseService) {
+        this.exerciseService = exerciseService;
+    }
+
+    public void setExerciseService(ExerciseService exerciseService) {
+        this.exerciseService = exerciseService;
     }
 
     @Override
@@ -92,8 +104,39 @@ public class InstructorExerciseServlet extends HttpServlet {
 
     private void showEditForm(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException, DatabaseException {
-        long id = Long.parseLong(request.getParameter("id"));
+        HttpSession session = request.getSession();
+        Object userIdObj = session != null ? session.getAttribute("userId") : null;
+        if (userIdObj == null) {
+            response.sendRedirect(request.getContextPath() + "/login.jsp");
+            return;
+        }
+        long instructorId = ((Number) userIdObj).longValue();
+
+        String idParam = request.getParameter("id");
+        if (idParam == null || idParam.trim().isEmpty()) {
+            response.sendRedirect(request.getContextPath() + "/instructor/exercises");
+            return;
+        }
+
+        long id;
+        try {
+            id = Long.parseLong(idParam.trim());
+        } catch (NumberFormatException e) {
+            response.sendRedirect(request.getContextPath() + "/instructor/exercises");
+            return;
+        }
+
+        if (id <= 0) {
+            response.sendRedirect(request.getContextPath() + "/instructor/exercises");
+            return;
+        }
+
         Exercise exercise = exerciseService.getExerciseById(id);
+        if (exercise == null || exercise.getCreatedBy() != instructorId) {
+            response.sendRedirect(request.getContextPath() + "/instructor/exercises");
+            return;
+        }
+
         request.setAttribute("exercise", exercise);
         request.getRequestDispatcher("/instructor/edit-exercise.jsp").forward(request, response);
     }

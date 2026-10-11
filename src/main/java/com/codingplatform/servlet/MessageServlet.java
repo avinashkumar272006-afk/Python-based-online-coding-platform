@@ -27,15 +27,25 @@ public class MessageServlet extends HttpServlet {
 
     @Override
     public void init() throws ServletException {
-        messageService = new MessageServiceImpl(new MessageDAOImpl(), new UserDAOImpl());
+        if (messageService == null) {
+            messageService = new MessageServiceImpl(new MessageDAOImpl(), new UserDAOImpl());
+        }
     }
+
+    public MessageServlet() {}
 
     // Constructor for testing
     public MessageServlet(MessageService messageService) {
         this.messageService = messageService;
     }
-    
-    public MessageServlet() {}
+
+    public MessageServlet(MessageService messageService, com.codingplatform.dao.UserDAO userDAO) {
+        this.messageService = messageService;
+    }
+
+    public void setMessageService(MessageService messageService) {
+        this.messageService = messageService;
+    }
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
@@ -54,25 +64,39 @@ public class MessageServlet extends HttpServlet {
         if (partnerIdParam != null && !partnerIdParam.isEmpty()) {
             try {
                 int partnerId = Integer.parseInt(partnerIdParam);
-                List<Message> conversation = messageService.getConversation(userId, partnerId);
+
+                User partner = messageService.getConversationPartner(userId, role, partnerId);
+                List<Message> conversation = messageService.getConversation(userId, role, partnerId);
+
                 request.setAttribute("conversation", conversation);
                 request.setAttribute("partnerId", partnerId);
-                
-                // We need to fetch partner details
+                request.setAttribute("partnerName", partner.getName());
 
-                User partner = new UserDAOImpl().getUserById(partnerId);
-                request.setAttribute("partnerName", partner != null ? partner.getName() : "Unknown");
-                
                 request.getRequestDispatcher("/messages/conversation.jsp").forward(request, response);
-            } catch (NumberFormatException | com.codingplatform.exception.DatabaseException e) {
+            } catch (NumberFormatException e) {
+                session.setAttribute("errorMessage", "Invalid partner ID.");
+                response.sendRedirect(request.getContextPath() + "/messages");
+            } catch (SecurityException | IllegalArgumentException e) {
+                session.setAttribute("errorMessage", e.getMessage());
+                response.sendRedirect(request.getContextPath() + "/messages");
+            } catch (RuntimeException e) {
+                session.setAttribute("errorMessage", "An error occurred while loading the conversation.");
                 response.sendRedirect(request.getContextPath() + "/messages");
             }
         } else {
+            String action = request.getParameter("action");
+            if ("students".equals(action) || "directory".equals(action)) {
+                if (!"INSTRUCTOR".equals(role)) {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied");
+                    return;
+                }
+            }
+
             if ("STUDENT".equals(role)) {
                 List<User> instructors = messageService.getAvailableInstructors();
                 request.setAttribute("partners", instructors);
             } else if ("INSTRUCTOR".equals(role)) {
-                List<User> students = messageService.getStudentsWithConversations(userId);
+                List<User> students = messageService.getAvailableStudents(role);
                 request.setAttribute("partners", students);
             }
             request.getRequestDispatcher("/messages/list.jsp").forward(request, response);
@@ -94,9 +118,15 @@ public class MessageServlet extends HttpServlet {
         String receiverIdParam = request.getParameter("receiverId");
         String messageText = request.getParameter("message");
 
-        if (receiverIdParam == null || receiverIdParam.isEmpty() || messageText == null || messageText.trim().isEmpty()) {
+        if (receiverIdParam == null || receiverIdParam.trim().isEmpty()) {
+            session.setAttribute("errorMessage", "Invalid receiver ID.");
+            response.sendRedirect(request.getContextPath() + "/messages");
+            return;
+        }
+
+        if (messageText == null || messageText.trim().isEmpty()) {
             session.setAttribute("errorMessage", "Message cannot be empty.");
-            response.sendRedirect(request.getContextPath() + "/messages" + (receiverIdParam != null ? "?partnerId=" + receiverIdParam : ""));
+            response.sendRedirect(request.getContextPath() + "/messages?partnerId=" + receiverIdParam);
             return;
         }
 

@@ -34,8 +34,9 @@ public class AuthenticationFilter implements Filter {
         boolean isStudentPath = path.startsWith("/student/");
         boolean isInstructorPath = path.startsWith("/instructor/");
         boolean isAdminPath = path.startsWith("/admin/");
+        boolean isMessagesPath = path.equals("/messages") || path.startsWith("/messages/");
         
-        boolean isProtectedPath = isStudentPath || isInstructorPath || isAdminPath;
+        boolean isProtectedPath = isStudentPath || isInstructorPath || isAdminPath || isMessagesPath;
         
         if (isProtectedPath) {
             HttpSession session = httpRequest.getSession(false);
@@ -54,6 +55,10 @@ public class AuthenticationFilter implements Filter {
                 return;
             }
             if (isAdminPath && !"ADMIN".equals(role)) {
+                httpResponse.sendRedirect(contextPath + "/login.jsp");
+                return;
+            }
+            if (isMessagesPath && !"STUDENT".equals(role) && !"INSTRUCTOR".equals(role)) {
                 httpResponse.sendRedirect(contextPath + "/login.jsp");
                 return;
             }
