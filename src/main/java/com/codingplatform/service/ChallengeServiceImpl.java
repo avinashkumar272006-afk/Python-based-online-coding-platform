@@ -57,15 +57,25 @@ public class ChallengeServiceImpl implements ChallengeService {
     }
 
     @Override
-    public void updateChallengeStatus(long challengeId, String status, long adminId) throws DatabaseException, IllegalArgumentException {
-        if (!"APPROVED".equals(status) && !"REJECTED".equals(status) && !"PENDING".equals(status)) {
+    public void updateChallengeStatus(long challengeId, String status, long adminId) throws DatabaseException, IllegalArgumentException, IllegalStateException {
+        if (!"APPROVED".equals(status) && !"REJECTED".equals(status)) {
             throw new IllegalArgumentException("Invalid status");
         }
         Challenge challenge = challengeDAO.getChallengeById(challengeId);
         if (challenge == null) {
             throw new IllegalArgumentException("Challenge not found");
         }
-        challengeDAO.updateChallengeStatus(challengeId, status);
+        if (!"PENDING".equalsIgnoreCase(challenge.getStatus())) {
+            throw new IllegalStateException("Only PENDING challenges can be moderated. Current status: " + challenge.getStatus());
+        }
+        boolean updated = challengeDAO.updateChallengeStatusIfPending(challengeId, status);
+        if (!updated) {
+            Challenge latest = challengeDAO.getChallengeById(challengeId);
+            if (latest == null) {
+                throw new IllegalArgumentException("Challenge not found");
+            }
+            throw new IllegalStateException("Challenge is no longer PENDING (current status: " + latest.getStatus() + ")");
+        }
     }
 
     @Override

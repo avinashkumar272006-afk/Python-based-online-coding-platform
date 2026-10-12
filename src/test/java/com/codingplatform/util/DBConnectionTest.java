@@ -58,4 +58,28 @@ public class DBConnectionTest {
             fail("Live database connection failed: " + e.getMessage());
         }
     }
+
+    @Test
+    public void testLiveConnectionFromExternalFile() {
+        assumeTrue(Boolean.getBoolean("live.db.test"),
+                "Skipping live database test: opt-in flag -Dlive.db.test=true or -Plive-db not enabled");
+
+        java.io.File credsFile = new java.io.File("C:/Tomcat/apache-tomcat/conf/db-credentials.properties");
+        assumeTrue(credsFile.exists(), "External credentials file does not exist");
+
+        // Isolate from system environment variables so credentials MUST come from the file
+        DBConnection.setEnvLookup(key -> null);
+        System.setProperty("catalina.base", "C:/Tomcat/apache-tomcat");
+
+        try (Connection conn = DBConnection.getConnection()) {
+            assertNotNull(conn, "Connection from external file should not be null");
+            assertTrue(conn.isValid(5), "Connection from external file should be valid");
+        } catch (DatabaseException | SQLException e) {
+            fail("Live database connection from external file failed: " + e.getMessage());
+        } finally {
+            System.clearProperty("catalina.base");
+            DBConnection.resetEnvLookup();
+            DBConnection.shutdownPool();
+        }
+    }
 }

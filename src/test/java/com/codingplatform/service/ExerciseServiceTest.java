@@ -155,9 +155,13 @@ class ExerciseServiceTest {
         mockAdmin.setId(5);
         mockAdmin.setRole("ADMIN");
         when(userDAO.getUserById(5)).thenReturn(mockAdmin);
-        
+
+        Exercise ex = new Exercise(10, "Title", "Desc", "EASY", "Topic", "code", "out", 1, null, "PENDING");
+        when(exerciseDAO.getExerciseById(10)).thenReturn(ex);
+        when(exerciseDAO.updateExerciseStatusIfPending(10, "APPROVED")).thenReturn(true);
+
         exerciseService.approveExercise(10, 5);
-        verify(exerciseDAO, times(1)).updateExerciseStatus(10, "APPROVED");
+        verify(exerciseDAO, times(1)).updateExerciseStatusIfPending(10, "APPROVED");
     }
 
     @Test
@@ -166,9 +170,103 @@ class ExerciseServiceTest {
         mockAdmin.setId(5);
         mockAdmin.setRole("ADMIN");
         when(userDAO.getUserById(5)).thenReturn(mockAdmin);
-        
+
+        Exercise ex = new Exercise(10, "Title", "Desc", "EASY", "Topic", "code", "out", 1, null, "PENDING");
+        when(exerciseDAO.getExerciseById(10)).thenReturn(ex);
+        when(exerciseDAO.updateExerciseStatusIfPending(10, "REJECTED")).thenReturn(true);
+
         exerciseService.rejectExercise(10, 5);
-        verify(exerciseDAO, times(1)).updateExerciseStatus(10, "REJECTED");
+        verify(exerciseDAO, times(1)).updateExerciseStatusIfPending(10, "REJECTED");
+    }
+
+    @Test
+    void testApproveExercise_AlreadyApproved_PreventsReModeration() throws DatabaseException {
+        User mockAdmin = new com.codingplatform.model.Admin();
+        mockAdmin.setId(5);
+        mockAdmin.setRole("ADMIN");
+        when(userDAO.getUserById(5)).thenReturn(mockAdmin);
+
+        Exercise ex = new Exercise(10, "Title", "Desc", "EASY", "Topic", "code", "out", 1, null, "APPROVED");
+        when(exerciseDAO.getExerciseById(10)).thenReturn(ex);
+
+        IllegalStateException thrown = assertThrows(IllegalStateException.class, () -> exerciseService.approveExercise(10, 5));
+        assertTrue(thrown.getMessage().contains("Only PENDING exercises can be moderated"));
+        verify(exerciseDAO, never()).updateExerciseStatusIfPending(anyLong(), anyString());
+    }
+
+    @Test
+    void testApproveExercise_AlreadyRejected_PreventsReModeration() throws DatabaseException {
+        User mockAdmin = new com.codingplatform.model.Admin();
+        mockAdmin.setId(5);
+        mockAdmin.setRole("ADMIN");
+        when(userDAO.getUserById(5)).thenReturn(mockAdmin);
+
+        Exercise ex = new Exercise(10, "Title", "Desc", "EASY", "Topic", "code", "out", 1, null, "REJECTED");
+        when(exerciseDAO.getExerciseById(10)).thenReturn(ex);
+
+        IllegalStateException thrown = assertThrows(IllegalStateException.class, () -> exerciseService.approveExercise(10, 5));
+        assertTrue(thrown.getMessage().contains("Only PENDING exercises can be moderated"));
+        verify(exerciseDAO, never()).updateExerciseStatusIfPending(anyLong(), anyString());
+    }
+
+    @Test
+    void testRejectExercise_AlreadyApproved_PreventsReModeration() throws DatabaseException {
+        User mockAdmin = new com.codingplatform.model.Admin();
+        mockAdmin.setId(5);
+        mockAdmin.setRole("ADMIN");
+        when(userDAO.getUserById(5)).thenReturn(mockAdmin);
+
+        Exercise ex = new Exercise(10, "Title", "Desc", "EASY", "Topic", "code", "out", 1, null, "APPROVED");
+        when(exerciseDAO.getExerciseById(10)).thenReturn(ex);
+
+        IllegalStateException thrown = assertThrows(IllegalStateException.class, () -> exerciseService.rejectExercise(10, 5));
+        assertTrue(thrown.getMessage().contains("Only PENDING exercises can be moderated"));
+        verify(exerciseDAO, never()).updateExerciseStatusIfPending(anyLong(), anyString());
+    }
+
+    @Test
+    void testRejectExercise_AlreadyRejected_PreventsReModeration() throws DatabaseException {
+        User mockAdmin = new com.codingplatform.model.Admin();
+        mockAdmin.setId(5);
+        mockAdmin.setRole("ADMIN");
+        when(userDAO.getUserById(5)).thenReturn(mockAdmin);
+
+        Exercise ex = new Exercise(10, "Title", "Desc", "EASY", "Topic", "code", "out", 1, null, "REJECTED");
+        when(exerciseDAO.getExerciseById(10)).thenReturn(ex);
+
+        IllegalStateException thrown = assertThrows(IllegalStateException.class, () -> exerciseService.rejectExercise(10, 5));
+        assertTrue(thrown.getMessage().contains("Only PENDING exercises can be moderated"));
+        verify(exerciseDAO, never()).updateExerciseStatusIfPending(anyLong(), anyString());
+    }
+
+    @Test
+    void testApproveExercise_NonexistentExercise_ThrowsException() throws DatabaseException {
+        User mockAdmin = new com.codingplatform.model.Admin();
+        mockAdmin.setId(5);
+        mockAdmin.setRole("ADMIN");
+        when(userDAO.getUserById(5)).thenReturn(mockAdmin);
+
+        when(exerciseDAO.getExerciseById(10)).thenReturn(null);
+
+        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class, () -> exerciseService.approveExercise(10, 5));
+        assertTrue(thrown.getMessage().contains("Exercise not found"));
+        verify(exerciseDAO, never()).updateExerciseStatusIfPending(anyLong(), anyString());
+    }
+
+    @Test
+    void testApproveExercise_ConcurrentUpdate_ThrowsException() throws DatabaseException {
+        User mockAdmin = new com.codingplatform.model.Admin();
+        mockAdmin.setId(5);
+        mockAdmin.setRole("ADMIN");
+        when(userDAO.getUserById(5)).thenReturn(mockAdmin);
+
+        Exercise ex = new Exercise(10, "Title", "Desc", "EASY", "Topic", "code", "out", 1, null, "PENDING");
+        Exercise updatedEx = new Exercise(10, "Title", "Desc", "EASY", "Topic", "code", "out", 1, null, "APPROVED");
+        when(exerciseDAO.getExerciseById(10)).thenReturn(ex, updatedEx);
+        when(exerciseDAO.updateExerciseStatusIfPending(10, "APPROVED")).thenReturn(false);
+
+        IllegalStateException thrown = assertThrows(IllegalStateException.class, () -> exerciseService.approveExercise(10, 5));
+        assertTrue(thrown.getMessage().contains("no longer PENDING"));
     }
 
     @Test

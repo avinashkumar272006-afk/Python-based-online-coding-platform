@@ -11,7 +11,7 @@ public interface ChallengeService {
     List<Challenge> getInstructorChallenges(long instructorId) throws DatabaseException;
     List<Challenge> getAllChallenges() throws DatabaseException;
     List<Challenge> getApprovedChallenges() throws DatabaseException;
-    void updateChallengeStatus(long challengeId, String status, long adminId) throws DatabaseException, IllegalArgumentException;
+    void updateChallengeStatus(long challengeId, String status, long adminId) throws DatabaseException, IllegalArgumentException, IllegalStateException;
     
     void joinChallenge(long challengeId, long studentId) throws DatabaseException, IllegalArgumentException;
     List<ChallengeParticipant> getStudentChallenges(long studentId) throws DatabaseException;

@@ -165,6 +165,22 @@ public class ExerciseDAOImpl implements ExerciseDAO {
     }
 
     @Override
+    public boolean updateExerciseStatusIfPending(long id, String status) throws DatabaseException {
+        String sql = "UPDATE exercises SET status = ? WHERE id = ? AND status = 'PENDING'";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, status);
+            pstmt.setLong(2, id);
+
+            int affectedRows = pstmt.executeUpdate();
+            return affectedRows > 0;
+        } catch (SQLException e) {
+            throw new DatabaseException("Error updating exercise status", e);
+        }
+    }
+
+    @Override
     public void deleteExercise(long id) throws DatabaseException {
         String sql = "DELETE FROM exercises WHERE id = ?";
         try (Connection conn = DBConnection.getConnection();

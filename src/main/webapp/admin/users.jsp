@@ -61,24 +61,45 @@
     </div>
     <div class="metric-card">
         <div class="metric-label">Students</div>
-        <div class="metric-value" style="color: var(--state-success);"><c:out value="${studentCount}" /></div>
+        <div class="metric-value stat-success"><c:out value="${studentCount}" /></div>
         <div class="metric-sub">Active learner accounts</div>
     </div>
     <div class="metric-card">
         <div class="metric-label">Instructors</div>
-        <div class="metric-value" style="color: var(--brand-accent);"><c:out value="${instructorCount}" /></div>
+        <div class="metric-value stat-accent"><c:out value="${instructorCount}" /></div>
         <div class="metric-sub">Educators &amp; content creators</div>
     </div>
     <div class="metric-card">
         <div class="metric-label">Administrators</div>
-        <div class="metric-value" style="color: var(--state-danger);"><c:out value="${adminCount}" /></div>
+        <div class="metric-value stat-danger"><c:out value="${adminCount}" /></div>
         <div class="metric-sub">Protected system administrators</div>
     </div>
 </div>
 
-<div class="card">
+<%-- Role Governance Policy Banner --%>
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 0.875rem 1.125rem; background-color: var(--state-info-bg); border: 1px solid var(--state-info-border); border-radius: var(--radius-md); margin-bottom: 1.5rem; gap: 0.75rem; flex-wrap: wrap;">
+    <div style="display: flex; align-items: flex-start; gap: 0.625rem;">
+        <span style="font-size: 1.125rem; line-height: 1.2;">ℹ️</span>
+        <div>
+            <div style="font-weight: 600; font-size: var(--font-size-sm); color: var(--state-info-text);">
+                Role Assignment Policy
+            </div>
+            <div style="font-size: var(--font-size-xs); color: var(--state-info-text); opacity: 0.9; margin-top: 0.125rem;">
+                Administrator accounts (<code>ADMIN</code>) are protected and cannot have their roles changed. Standard accounts can be updated between <strong>STUDENT</strong> and <strong>INSTRUCTOR</strong>.
+            </div>
+        </div>
+    </div>
+    <span class="badge badge-info" style="font-size: 0.7rem;">Access Control</span>
+</div>
+
+<div class="card" style="margin-bottom: 2rem;">
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
-        <h2 class="card-title">All Registered Users</h2>
+        <div>
+            <h2 class="card-title">All Registered Users</h2>
+            <div style="font-size: var(--font-size-xs); color: var(--text-secondary); margin-top: 0.125rem;">
+                Directory of platform users with current roles, contact details, and account creation dates
+            </div>
+        </div>
         <span class="badge badge-info"><c:out value="${users != null ? users.size() : 0}" /> Accounts</span>
     </div>
     <div class="card-body" style="padding: 0;">
@@ -93,7 +114,7 @@
                                 <th>Email</th>
                                 <th>Current Role</th>
                                 <th>Created At</th>
-                                <th style="min-width: 200px;">Role Assignment</th>
+                                <th style="min-width: 220px;">Role Assignment</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -103,13 +124,18 @@
                                         #<c:out value="${user.id}" />
                                     </td>
                                     <td>
-                                        <div style="font-weight: 600; color: var(--text-primary);">
-                                            <c:out value="${user.name}" />
+                                        <div style="display: flex; align-items: center; gap: 0.625rem;">
+                                            <div style="width: 28px; height: 28px; border-radius: var(--radius-full); background: var(--brand-accent-light); color: var(--brand-accent); display: flex; align-items: center; justify-content: center; font-size: var(--font-size-xs); border: 1px solid var(--brand-accent-subtle); flex-shrink: 0;">
+                                                👤
+                                            </div>
+                                            <div style="font-weight: 600; color: var(--text-primary); font-size: var(--font-size-sm);">
+                                                <c:out value="${user.name != null ? user.name : 'Unknown User'}" />
+                                            </div>
                                         </div>
                                     </td>
                                     <td>
-                                        <span style="color: var(--text-secondary);">
-                                            <c:out value="${user.email}" />
+                                        <span style="color: var(--text-secondary); font-size: var(--font-size-sm);">
+                                            <c:out value="${user.email != null ? user.email : 'N/A'}" />
                                         </span>
                                     </td>
                                     <td>
@@ -124,7 +150,7 @@
                                                 <span class="badge badge-success">STUDENT</span>
                                             </c:when>
                                             <c:otherwise>
-                                                <span class="badge"><c:out value="${user.role}" /></span>
+                                                <span class="badge"><c:out value="${user.role != null ? user.role : 'N/A'}" /></span>
                                             </c:otherwise>
                                         </c:choose>
                                     </td>
@@ -135,10 +161,10 @@
                                         <c:choose>
                                             <c:when test="${user.role != 'ADMIN'}">
                                                 <form action="${pageContext.request.contextPath}/admin/users" method="post" style="display: flex; align-items: center; gap: 0.5rem; margin: 0;">
-                                                    <input type="hidden" name="csrfToken" value="${not empty csrfToken ? csrfToken : sessionScope.csrfToken}">
+                                                    <input type="hidden" name="csrfToken" value="<c:out value='${not empty csrfToken ? csrfToken : sessionScope.csrfToken}' />">
                                                     <input type="hidden" name="action" value="updateRole">
                                                     <input type="hidden" name="userId" value="${user.id}">
-                                                    <select name="role" class="form-select" style="padding: 0.3125rem 0.5rem; font-size: var(--font-size-xs); width: auto; min-width: 120px;">
+                                                    <select name="role" class="form-select" style="padding: 0.3125rem 0.5rem; font-size: var(--font-size-xs); width: auto; min-width: 125px;" aria-label="Role for user <c:out value='${user.id}' />">
                                                         <option value="STUDENT" ${user.role == 'STUDENT' ? 'selected' : ''}>STUDENT</option>
                                                         <option value="INSTRUCTOR" ${user.role == 'INSTRUCTOR' ? 'selected' : ''}>INSTRUCTOR</option>
                                                     </select>
@@ -148,8 +174,9 @@
                                                 </form>
                                             </c:when>
                                             <c:otherwise>
-                                                <span style="font-size: var(--font-size-xs); color: var(--text-muted); font-style: italic; display: inline-flex; align-items: center; gap: 0.25rem;">
-                                                    🔒 Protected Admin
+                                                <span style="font-size: var(--font-size-xs); color: var(--text-muted); display: inline-flex; align-items: center; gap: 0.35rem; background: var(--bg-subtle); padding: 0.25rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+                                                    <span>🔒</span>
+                                                    <span style="font-weight: 500;">Protected Admin</span>
                                                 </span>
                                             </c:otherwise>
                                         </c:choose>
@@ -161,10 +188,10 @@
                 </div>
             </c:when>
             <c:otherwise>
-                <div style="padding: 3.5rem 1.5rem; text-align: center; color: var(--text-secondary);">
+                <div class="empty-state-box" style="margin: 2rem 1.5rem;">
                     <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">👥</div>
-                    <p style="font-size: var(--font-size-base); font-weight: 600; margin-bottom: 0.25rem;">No Users Found</p>
-                    <p style="font-size: var(--font-size-sm); color: var(--text-muted); margin-bottom: 0;">There are currently no registered users on the platform.</p>
+                    <div class="empty-state-title">No Users Found</div>
+                    <div class="empty-state-text">There are currently no registered users on the platform.</div>
                 </div>
             </c:otherwise>
         </c:choose>

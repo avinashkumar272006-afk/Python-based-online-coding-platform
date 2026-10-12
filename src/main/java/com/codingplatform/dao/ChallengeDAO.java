@@ -12,4 +12,8 @@ public interface ChallengeDAO {
     List<Challenge> getPendingChallenges() throws DatabaseException;
     List<Challenge> getChallengesByInstructor(long instructorId) throws DatabaseException;
     void updateChallengeStatus(long id, String status) throws DatabaseException;
+    default boolean updateChallengeStatusIfPending(long id, String status) throws DatabaseException {
+        updateChallengeStatus(id, status);
+        return true;
+    }
 }

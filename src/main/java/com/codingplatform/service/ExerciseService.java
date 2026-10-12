@@ -12,7 +12,7 @@ public interface ExerciseService {
     List<Exercise> getPendingExercises() throws DatabaseException;
     List<Exercise> getExercisesByInstructor(long instructorId) throws DatabaseException;
     void updateExercise(Exercise exercise, long instructorId) throws DatabaseException, IllegalArgumentException, SecurityException;
-    void approveExercise(long id, long adminId) throws DatabaseException, SecurityException;
-    void rejectExercise(long id, long adminId) throws DatabaseException, SecurityException;
+    void approveExercise(long id, long adminId) throws DatabaseException, SecurityException, IllegalArgumentException, IllegalStateException;
+    void rejectExercise(long id, long adminId) throws DatabaseException, SecurityException, IllegalArgumentException, IllegalStateException;
     void deleteExercise(long id, long instructorId) throws DatabaseException, SecurityException;
 }

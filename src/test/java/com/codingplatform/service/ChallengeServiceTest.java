@@ -66,13 +66,85 @@ public class ChallengeServiceTest {
     }
 
     @Test
-    public void testUpdateChallengeStatus_AdminCanApproveReject() throws Exception {
+    public void testUpdateChallengeStatus_PendingToApproved() throws Exception {
         Challenge c = new Challenge();
         c.setId(1L);
+        c.setStatus("PENDING");
         when(challengeDAO.getChallengeById(1L)).thenReturn(c);
-        
+        when(challengeDAO.updateChallengeStatusIfPending(1L, "APPROVED")).thenReturn(true);
+
         challengeService.updateChallengeStatus(1L, "APPROVED", 100L);
-        verify(challengeDAO).updateChallengeStatus(1L, "APPROVED");
+        verify(challengeDAO).updateChallengeStatusIfPending(1L, "APPROVED");
+    }
+
+    @Test
+    public void testUpdateChallengeStatus_PendingToRejected() throws Exception {
+        Challenge c = new Challenge();
+        c.setId(1L);
+        c.setStatus("PENDING");
+        when(challengeDAO.getChallengeById(1L)).thenReturn(c);
+        when(challengeDAO.updateChallengeStatusIfPending(1L, "REJECTED")).thenReturn(true);
+
+        challengeService.updateChallengeStatus(1L, "REJECTED", 100L);
+        verify(challengeDAO).updateChallengeStatusIfPending(1L, "REJECTED");
+    }
+
+    @Test
+    public void testUpdateChallengeStatus_AlreadyApproved_ThrowsException() throws Exception {
+        Challenge c = new Challenge();
+        c.setId(1L);
+        c.setStatus("APPROVED");
+        when(challengeDAO.getChallengeById(1L)).thenReturn(c);
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () ->
+            challengeService.updateChallengeStatus(1L, "APPROVED", 100L)
+        );
+        assertTrue(ex.getMessage().contains("Only PENDING challenges can be moderated"));
+        verify(challengeDAO, never()).updateChallengeStatusIfPending(anyLong(), anyString());
+    }
+
+    @Test
+    public void testUpdateChallengeStatus_AlreadyRejected_ThrowsException() throws Exception {
+        Challenge c = new Challenge();
+        c.setId(1L);
+        c.setStatus("REJECTED");
+        when(challengeDAO.getChallengeById(1L)).thenReturn(c);
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () ->
+            challengeService.updateChallengeStatus(1L, "REJECTED", 100L)
+        );
+        assertTrue(ex.getMessage().contains("Only PENDING challenges can be moderated"));
+        verify(challengeDAO, never()).updateChallengeStatusIfPending(anyLong(), anyString());
+    }
+
+    @Test
+    public void testUpdateChallengeStatus_NotFound_ThrowsException() throws Exception {
+        when(challengeDAO.getChallengeById(1L)).thenReturn(null);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+            challengeService.updateChallengeStatus(1L, "APPROVED", 100L)
+        );
+        assertEquals("Challenge not found", ex.getMessage());
+        verify(challengeDAO, never()).updateChallengeStatusIfPending(anyLong(), anyString());
+    }
+
+    @Test
+    public void testUpdateChallengeStatus_ConcurrentUpdate_ThrowsException() throws Exception {
+        Challenge c = new Challenge();
+        c.setId(1L);
+        c.setStatus("PENDING");
+
+        Challenge updated = new Challenge();
+        updated.setId(1L);
+        updated.setStatus("APPROVED");
+
+        when(challengeDAO.getChallengeById(1L)).thenReturn(c, updated);
+        when(challengeDAO.updateChallengeStatusIfPending(1L, "APPROVED")).thenReturn(false);
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () ->
+            challengeService.updateChallengeStatus(1L, "APPROVED", 100L)
+        );
+        assertTrue(ex.getMessage().contains("no longer PENDING"));
     }
 
     @Test

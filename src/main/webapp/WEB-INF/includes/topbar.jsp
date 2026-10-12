@@ -3,7 +3,7 @@
 <div class="app-main">
     <header class="app-topbar">
         <div style="display: flex; align-items: center; gap: 1rem;">
-            <button type="button" class="sidebar-toggle btn btn-secondary btn-sm" aria-label="Toggle navigation" aria-expanded="false" style="display: inline-flex;">
+            <button type="button" class="sidebar-toggle btn btn-secondary btn-sm" aria-label="Toggle navigation" aria-expanded="false">
                 ☰
             </button>
             <div class="breadcrumb" style="margin-bottom: 0;">

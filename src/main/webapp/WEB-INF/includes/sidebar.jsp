@@ -4,16 +4,16 @@
     <div class="sidebar-header">
         <c:choose>
             <c:when test="${sessionScope.role == 'ADMIN'}">
-                <a href="${pageContext.request.contextPath}/admin/dashboard" style="color: inherit; text-decoration: none;">🐍 Python Platform</a>
+                <a href="${pageContext.request.contextPath}/admin/dashboard" class="sidebar-brand">🐍 Python Platform</a>
             </c:when>
             <c:when test="${sessionScope.role == 'INSTRUCTOR'}">
-                <a href="${pageContext.request.contextPath}/instructor/dashboard" style="color: inherit; text-decoration: none;">🐍 Python Platform</a>
+                <a href="${pageContext.request.contextPath}/instructor/dashboard" class="sidebar-brand">🐍 Python Platform</a>
             </c:when>
             <c:when test="${sessionScope.role == 'STUDENT'}">
-                <a href="${pageContext.request.contextPath}/student/dashboard" style="color: inherit; text-decoration: none;">🐍 Python Platform</a>
+                <a href="${pageContext.request.contextPath}/student/dashboard" class="sidebar-brand">🐍 Python Platform</a>
             </c:when>
             <c:otherwise>
-                <a href="${pageContext.request.contextPath}/home" style="color: inherit; text-decoration: none;">🐍 Python Platform</a>
+                <a href="${pageContext.request.contextPath}/home" class="sidebar-brand">🐍 Python Platform</a>
             </c:otherwise>
         </c:choose>
     </div>
@@ -156,7 +156,7 @@
             <li class="sidebar-nav-item">
                 <form action="${pageContext.request.contextPath}/logout" method="post" style="margin: 0; padding: 0;">
                     <input type="hidden" name="csrfToken" value="<c:out value='${csrfToken != null ? csrfToken : sessionScope.csrfToken}' />" />
-                    <button type="submit" class="sidebar-nav-link" style="background: none; border: none; width: 100%; text-align: left; cursor: pointer; font: inherit;">
+                    <button type="submit" class="sidebar-nav-link sidebar-nav-btn">
                         Logout
                     </button>
                 </form>

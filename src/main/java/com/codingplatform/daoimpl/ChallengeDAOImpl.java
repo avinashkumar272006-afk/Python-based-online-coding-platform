@@ -111,6 +111,22 @@ public class ChallengeDAOImpl implements ChallengeDAO {
         }
     }
 
+    @Override
+    public boolean updateChallengeStatusIfPending(long id, String status) throws DatabaseException {
+        String sql = "UPDATE challenges SET status = ? WHERE id = ? AND status = 'PENDING'";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, status);
+            pstmt.setLong(2, id);
+
+            int affectedRows = pstmt.executeUpdate();
+            return affectedRows > 0;
+        } catch (SQLException e) {
+            throw new DatabaseException("Error updating challenge status", e);
+        }
+    }
+
     private List<Challenge> getChallengesList(String sql) throws DatabaseException {
         List<Challenge> challenges = new ArrayList<>();
         try (Connection conn = DBConnection.getConnection();

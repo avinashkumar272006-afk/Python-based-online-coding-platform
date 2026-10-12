@@ -7,16 +7,22 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
 import javax.sql.DataSource;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Locale;
+import java.util.Properties;
 import java.util.function.Function;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
  * Utility for managing database connectivity using a high-performance HikariCP connection pool.
  * Borrows connections for application operations and returns them upon Connection.close().
- * Supports external configuration through environment variables and system properties with sensible defaults.
+ * Supports external configuration through environment variables, system properties, and dedicated credential files.
  */
 public class DBConnection {
 
@@ -33,13 +39,24 @@ public class DBConnection {
     private static final Object LOCK = new Object();
     private static Function<String, String> envLookup = System::getenv;
 
+    private static volatile Properties cachedExternalProps = null;
+    private static final Object PROPS_LOCK = new Object();
+
     // Package-private test seam to simulate environment-variable lookup
     static void setEnvLookup(Function<String, String> lookup) {
         envLookup = lookup != null ? lookup : System::getenv;
+        resetExternalProperties();
     }
 
     static void resetEnvLookup() {
         envLookup = System::getenv;
+        resetExternalProperties();
+    }
+
+    static void resetExternalProperties() {
+        synchronized (PROPS_LOCK) {
+            cachedExternalProps = null;
+        }
     }
 
     private DBConnection() {
@@ -74,6 +91,7 @@ public class DBConnection {
                         ds = new HikariDataSource(config);
                         dataSource = ds;
                     } catch (Exception e) {
+                        LOGGER.log(Level.SEVERE, "Failed to initialize database connection pool", e);
                         throw new DatabaseException("Failed to connect to the database", e);
                     }
                 }
@@ -83,6 +101,7 @@ public class DBConnection {
         try {
             return ds.getConnection();
         } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Failed to borrow connection from database pool", e);
             throw new DatabaseException("Failed to connect to the database", e);
         }
     }
@@ -122,10 +141,17 @@ public class DBConnection {
         config.setMaxLifetime(maxLifetime);
         config.setPoolName(poolName.trim());
 
+        // Keep connection alive for cloud databases (e.g., Supabase / AWS) that drop idle sockets
+        long keepaliveTime = parsePositiveLong(getEnvOrProperty("DB_POOL_KEEPALIVE_TIME_MS"), 30000L);
+        if (keepaliveTime > 0 && keepaliveTime < maxLifetime) {
+            config.setKeepaliveTime(keepaliveTime);
+        }
+        config.setValidationTimeout(5000L);
+
         final String finalPoolName = poolName.trim();
         LOGGER.info(() -> String.format(
-                "Configured HikariCP pool '%s' [maxSize=%d, minIdle=%d, connTimeout=%dms, idleTimeout=%dms, maxLifetime=%dms]",
-                finalPoolName, maxPoolSize, Math.min(minIdle, maxPoolSize), connectionTimeout, idleTimeout, maxLifetime));
+                "Configured HikariCP pool '%s' [maxSize=%d, minIdle=%d, connTimeout=%dms, idleTimeout=%dms, maxLifetime=%dms, keepalive=%dms]",
+                finalPoolName, maxPoolSize, Math.min(minIdle, maxPoolSize), connectionTimeout, idleTimeout, maxLifetime, keepaliveTime));
 
         return config;
     }
@@ -179,8 +205,19 @@ public class DBConnection {
             }
             dataSource = null;
         }
+        resetExternalProperties();
     }
 
+    /**
+     * Resolves configuration properties according to strict precedence:
+     * 1. JVM System Properties (e.g. -DDB_URL=...)
+     * 2. Process Environment Variables (via envLookup)
+     * 3. External credentials file:
+     *    - Explicit path via DB_CREDENTIALS_FILE (system prop or env)
+     *    - Dedicated Tomcat conf file: ${catalina.base}/conf/db-credentials.properties
+     *    - Local development .env file (only in LOCAL_DEV or UNKNOWN environments)
+     * Note: In TEST environment, external files are skipped unless DB_CREDENTIALS_FILE is explicitly set.
+     */
     private static String getEnvOrProperty(String name) {
         if (name == null) {
             return null;
@@ -197,7 +234,118 @@ public class DBConnection {
         if (envVal != null && !envVal.trim().isEmpty()) {
             return envVal.trim();
         }
+
+        // In TEST environment, do not fall back to external/local credentials files unless explicitly configured
+        if (AppEnvironment.getEnvironment().isTest() && getExplicitCredentialsFilePath() == null && System.getProperty("catalina.base") == null) {
+            return null;
+        }
+
+        Properties externalProps = getExternalProperties();
+        if (externalProps != null) {
+            String val = externalProps.getProperty(name);
+            if (val == null) {
+                if ("DB_URL".equals(name)) {
+                    val = externalProps.getProperty("db.url");
+                } else if ("DB_USERNAME".equals(name)) {
+                    val = externalProps.getProperty("db.username");
+                    if (val == null) {
+                        val = externalProps.getProperty("db.user");
+                    }
+                } else if ("DB_PASSWORD".equals(name)) {
+                    val = externalProps.getProperty("db.password");
+                }
+            }
+            if (val != null) {
+                String trimmed = val.trim();
+                if ((trimmed.startsWith("\"") && trimmed.endsWith("\"")) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+                    if (trimmed.length() >= 2) {
+                        trimmed = trimmed.substring(1, trimmed.length() - 1).trim();
+                    }
+                }
+                return trimmed.isEmpty() ? null : trimmed;
+            }
+        }
+
         return null;
+    }
+
+    private static String getExplicitCredentialsFilePath() {
+        String prop = System.getProperty("DB_CREDENTIALS_FILE");
+        if (prop != null && !prop.trim().isEmpty()) {
+            return prop.trim();
+        }
+        String env = envLookup.apply("DB_CREDENTIALS_FILE");
+        if (env != null && !env.trim().isEmpty()) {
+            return env.trim();
+        }
+        return null;
+    }
+
+    private static File resolveCredentialsFile() {
+        String explicitPath = getExplicitCredentialsFilePath();
+        if (explicitPath != null) {
+            File f = new File(explicitPath);
+            if (f.exists() && f.isFile()) {
+                return f;
+            }
+            LOGGER.warning(() -> "Configured DB_CREDENTIALS_FILE does not exist or is not a readable file.");
+            return null;
+        }
+
+        // Tomcat container standard location: ${catalina.base}/conf/db-credentials.properties
+        String catalinaBase = System.getProperty("catalina.base");
+        if (catalinaBase == null || catalinaBase.trim().isEmpty()) {
+            catalinaBase = envLookup.apply("CATALINA_BASE");
+        }
+        if (catalinaBase == null || catalinaBase.trim().isEmpty()) {
+            catalinaBase = System.getProperty("catalina.home");
+        }
+        if (catalinaBase == null || catalinaBase.trim().isEmpty()) {
+            catalinaBase = envLookup.apply("CATALINA_HOME");
+        }
+        if (catalinaBase != null && !catalinaBase.trim().isEmpty()) {
+            File tomcatConf = new File(catalinaBase.trim(), "conf" + File.separator + "db-credentials.properties");
+            if (tomcatConf.exists() && tomcatConf.isFile()) {
+                return tomcatConf;
+            }
+        }
+
+        // Local development fallback: .env in working directory
+        EnvironmentType env = AppEnvironment.getEnvironment();
+        if (env.isLocalDev() || env.isUnknown()) {
+            File localEnv = new File(".env");
+            if (localEnv.exists() && localEnv.isFile()) {
+                return localEnv;
+            }
+        }
+
+        return null;
+    }
+
+    private static Properties getExternalProperties() {
+        Properties cached = cachedExternalProps;
+        if (cached != null) {
+            return cached;
+        }
+        synchronized (PROPS_LOCK) {
+            if (cachedExternalProps != null) {
+                return cachedExternalProps;
+            }
+            File credsFile = resolveCredentialsFile();
+            if (credsFile == null) {
+                return null;
+            }
+            Properties props = new Properties();
+            try (InputStream in = new FileInputStream(credsFile)) {
+                props.load(in);
+                LOGGER.info(() -> "Loaded database configuration from external file: " + credsFile.getAbsolutePath());
+                cachedExternalProps = props;
+                return props;
+            } catch (IOException e) {
+                LOGGER.log(Level.WARNING, "Failed to read database configuration from external file: " + credsFile.getAbsolutePath(), e);
+                return null;
+            }
+        }
     }
 
     private static int parsePositiveInt(String val, int defaultValue) {

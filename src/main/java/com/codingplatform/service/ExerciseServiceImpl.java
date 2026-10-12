@@ -90,15 +90,43 @@ public class ExerciseServiceImpl implements ExerciseService {
     }
 
     @Override
-    public void approveExercise(long id, long adminId) throws DatabaseException, SecurityException {
+    public void approveExercise(long id, long adminId) throws DatabaseException, SecurityException, IllegalArgumentException, IllegalStateException {
         verifyAdmin(adminId);
-        exerciseDAO.updateExerciseStatus(id, "APPROVED");
+        Exercise existing = exerciseDAO.getExerciseById(id);
+        if (existing == null) {
+            throw new IllegalArgumentException("Exercise not found.");
+        }
+        if (!"PENDING".equalsIgnoreCase(existing.getStatus())) {
+            throw new IllegalStateException("Only PENDING exercises can be moderated. Current status: " + existing.getStatus());
+        }
+        boolean updated = exerciseDAO.updateExerciseStatusIfPending(id, "APPROVED");
+        if (!updated) {
+            Exercise latest = exerciseDAO.getExerciseById(id);
+            if (latest == null) {
+                throw new IllegalArgumentException("Exercise not found.");
+            }
+            throw new IllegalStateException("Exercise is no longer PENDING (current status: " + latest.getStatus() + ")");
+        }
     }
 
     @Override
-    public void rejectExercise(long id, long adminId) throws DatabaseException, SecurityException {
+    public void rejectExercise(long id, long adminId) throws DatabaseException, SecurityException, IllegalArgumentException, IllegalStateException {
         verifyAdmin(adminId);
-        exerciseDAO.updateExerciseStatus(id, "REJECTED");
+        Exercise existing = exerciseDAO.getExerciseById(id);
+        if (existing == null) {
+            throw new IllegalArgumentException("Exercise not found.");
+        }
+        if (!"PENDING".equalsIgnoreCase(existing.getStatus())) {
+            throw new IllegalStateException("Only PENDING exercises can be moderated. Current status: " + existing.getStatus());
+        }
+        boolean updated = exerciseDAO.updateExerciseStatusIfPending(id, "REJECTED");
+        if (!updated) {
+            Exercise latest = exerciseDAO.getExerciseById(id);
+            if (latest == null) {
+                throw new IllegalArgumentException("Exercise not found.");
+            }
+            throw new IllegalStateException("Exercise is no longer PENDING (current status: " + latest.getStatus() + ")");
+        }
     }
 
     private void verifyAdmin(long adminId) throws SecurityException {

@@ -77,4 +77,43 @@ public class AdminChallengeServletTest {
         verify(challengeService).updateChallengeStatus(1L, "REJECTED", 100L);
         verify(response).sendRedirect(anyString());
     }
+
+    @Test
+    public void testDoPost_AlreadyApproved_ReturnsBadRequest() throws Exception {
+        when(request.getParameter("action")).thenReturn("approve");
+        when(request.getParameter("id")).thenReturn("1");
+        doThrow(new IllegalStateException("Only PENDING challenges can be moderated. Current status: APPROVED"))
+                .when(challengeService).updateChallengeStatus(1L, "APPROVED", 100L);
+
+        servlet.doPost(request, response);
+
+        verify(response).sendError(HttpServletResponse.SC_BAD_REQUEST, "Only PENDING challenges can be moderated. Current status: APPROVED");
+        verify(response, never()).sendRedirect(anyString());
+    }
+
+    @Test
+    public void testDoPost_AlreadyRejected_ReturnsBadRequest() throws Exception {
+        when(request.getParameter("action")).thenReturn("reject");
+        when(request.getParameter("id")).thenReturn("1");
+        doThrow(new IllegalStateException("Only PENDING challenges can be moderated. Current status: REJECTED"))
+                .when(challengeService).updateChallengeStatus(1L, "REJECTED", 100L);
+
+        servlet.doPost(request, response);
+
+        verify(response).sendError(HttpServletResponse.SC_BAD_REQUEST, "Only PENDING challenges can be moderated. Current status: REJECTED");
+        verify(response, never()).sendRedirect(anyString());
+    }
+
+    @Test
+    public void testDoPost_NonexistentChallenge_ReturnsBadRequest() throws Exception {
+        when(request.getParameter("action")).thenReturn("approve");
+        when(request.getParameter("id")).thenReturn("999");
+        doThrow(new IllegalArgumentException("Challenge not found"))
+                .when(challengeService).updateChallengeStatus(999L, "APPROVED", 100L);
+
+        servlet.doPost(request, response);
+
+        verify(response).sendError(HttpServletResponse.SC_BAD_REQUEST, "Challenge not found");
+        verify(response, never()).sendRedirect(anyString());
+    }
 }

@@ -13,5 +13,9 @@ public interface ExerciseDAO {
     List<Exercise> getExercisesByInstructor(long instructorId) throws DatabaseException;
     void updateExercise(Exercise exercise) throws DatabaseException;
     void updateExerciseStatus(long id, String status) throws DatabaseException;
+    default boolean updateExerciseStatusIfPending(long id, String status) throws DatabaseException {
+        updateExerciseStatus(id, status);
+        return true;
+    }
     void deleteExercise(long id) throws DatabaseException;
 }

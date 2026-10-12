@@ -116,4 +116,58 @@ public class AdminExerciseServletTest {
         verify(response).sendRedirect("/login.jsp");
         verify(exerciseService, never()).approveExercise(anyLong(), anyLong());
     }
+
+    @Test
+    void doPost_AlreadyApproved_SetsErrorMessageAndRedirects() throws Exception {
+        jakarta.servlet.http.HttpSession session = mock(jakarta.servlet.http.HttpSession.class);
+        when(request.getSession()).thenReturn(session);
+        when(request.getParameter("action")).thenReturn("approve");
+        when(request.getParameter("id")).thenReturn("1");
+        when(session.getAttribute("userId")).thenReturn(10);
+        when(request.getContextPath()).thenReturn("");
+
+        doThrow(new IllegalStateException("Only PENDING exercises can be moderated. Current status: APPROVED"))
+                .when(exerciseService).approveExercise(1L, 10L);
+
+        adminExerciseServlet.doPost(request, response);
+
+        verify(session).setAttribute("errorMessage", "Only PENDING exercises can be moderated. Current status: APPROVED");
+        verify(response).sendRedirect("/admin/exercises");
+    }
+
+    @Test
+    void doPost_AlreadyRejected_SetsErrorMessageAndRedirects() throws Exception {
+        jakarta.servlet.http.HttpSession session = mock(jakarta.servlet.http.HttpSession.class);
+        when(request.getSession()).thenReturn(session);
+        when(request.getParameter("action")).thenReturn("reject");
+        when(request.getParameter("id")).thenReturn("2");
+        when(session.getAttribute("userId")).thenReturn(10);
+        when(request.getContextPath()).thenReturn("");
+
+        doThrow(new IllegalStateException("Only PENDING exercises can be moderated. Current status: REJECTED"))
+                .when(exerciseService).rejectExercise(2L, 10L);
+
+        adminExerciseServlet.doPost(request, response);
+
+        verify(session).setAttribute("errorMessage", "Only PENDING exercises can be moderated. Current status: REJECTED");
+        verify(response).sendRedirect("/admin/exercises");
+    }
+
+    @Test
+    void doPost_NonexistentExercise_SetsErrorMessageAndRedirects() throws Exception {
+        jakarta.servlet.http.HttpSession session = mock(jakarta.servlet.http.HttpSession.class);
+        when(request.getSession()).thenReturn(session);
+        when(request.getParameter("action")).thenReturn("approve");
+        when(request.getParameter("id")).thenReturn("999");
+        when(session.getAttribute("userId")).thenReturn(10);
+        when(request.getContextPath()).thenReturn("");
+
+        doThrow(new IllegalArgumentException("Exercise not found."))
+                .when(exerciseService).approveExercise(999L, 10L);
+
+        adminExerciseServlet.doPost(request, response);
+
+        verify(session).setAttribute("errorMessage", "Exercise not found.");
+        verify(response).sendRedirect("/admin/exercises");
+    }
 }

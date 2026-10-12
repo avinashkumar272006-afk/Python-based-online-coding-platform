@@ -47,6 +47,8 @@ backups/
 *.env.*
 !.env.example
 secrets.properties
+db-credentials.properties
+*.credentials.properties
 
 # OS generated files
 .DS_Store

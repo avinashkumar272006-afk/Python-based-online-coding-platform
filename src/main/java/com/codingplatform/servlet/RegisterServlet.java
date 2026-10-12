@@ -12,10 +12,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 @WebServlet("/register")
 public class RegisterServlet extends HttpServlet {
 
+    private static final Logger LOGGER = Logger.getLogger(RegisterServlet.class.getName());
     private UserService userService;
 
     @Override
@@ -89,6 +92,11 @@ public class RegisterServlet extends HttpServlet {
             request.setAttribute("errorMessage", e.getMessage());
             request.getRequestDispatcher("/register.jsp").forward(request, response);
         } catch (DatabaseException e) {
+            LOGGER.log(Level.SEVERE, "DatabaseException during registration for user: " + (user != null ? user.getEmail() : ""), e);
+            request.setAttribute("errorMessage", "An internal error occurred during registration. Please try again later.");
+            request.getRequestDispatcher("/register.jsp").forward(request, response);
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Unexpected error during registration for user: " + (user != null ? user.getEmail() : ""), e);
             request.setAttribute("errorMessage", "An internal error occurred during registration. Please try again later.");
             request.getRequestDispatcher("/register.jsp").forward(request, response);
         }

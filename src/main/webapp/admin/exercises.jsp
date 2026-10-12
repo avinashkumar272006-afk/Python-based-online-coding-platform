@@ -21,7 +21,7 @@
 </jsp:include>
 
 <%-- Metric derivation from existing model objects --%>
-<c:set var="totalCount" value="${exercises != null ? exercises.size() : 0}" />
+<c:set var="totalCount" value="${exercises != null ? exercises.size() : (pendingExercises != null ? pendingExercises.size() : 0)}" />
 <c:set var="pendingCount" value="${pendingExercises != null ? pendingExercises.size() : 0}" />
 <c:set var="approvedCount" value="0" />
 <c:set var="rejectedCount" value="0" />
@@ -32,21 +32,26 @@
 <c:if test="${not empty exercises}">
     <c:forEach var="ex" items="${exercises}">
         <c:choose>
-            <c:when test="${ex.status == 'APPROVED'}">
+            <c:when test="${ex.status == 'APPROVED' || ex.status == 'Approved' || ex.status == 'approved'}">
                 <c:set var="approvedCount" value="${approvedCount + 1}" />
             </c:when>
-            <c:when test="${ex.status == 'REJECTED'}">
+            <c:when test="${ex.status == 'REJECTED' || ex.status == 'Rejected' || ex.status == 'rejected'}">
                 <c:set var="rejectedCount" value="${rejectedCount + 1}" />
+            </c:when>
+            <c:when test="${ex.status == 'PENDING' || ex.status == 'Pending' || ex.status == 'pending'}">
+                <c:if test="${pendingExercises == null}">
+                    <c:set var="pendingCount" value="${pendingCount + 1}" />
+                </c:if>
             </c:when>
         </c:choose>
         <c:choose>
-            <c:when test="${ex.difficulty == 'EASY' || ex.difficulty == 'Easy'}">
+            <c:when test="${ex.difficulty == 'EASY' || ex.difficulty == 'Easy' || ex.difficulty == 'easy'}">
                 <c:set var="easyCount" value="${easyCount + 1}" />
             </c:when>
-            <c:when test="${ex.difficulty == 'MEDIUM' || ex.difficulty == 'Medium'}">
+            <c:when test="${ex.difficulty == 'MEDIUM' || ex.difficulty == 'Medium' || ex.difficulty == 'medium'}">
                 <c:set var="mediumCount" value="${mediumCount + 1}" />
             </c:when>
-            <c:when test="${ex.difficulty == 'HARD' || ex.difficulty == 'Hard'}">
+            <c:when test="${ex.difficulty == 'HARD' || ex.difficulty == 'Hard' || ex.difficulty == 'hard'}">
                 <c:set var="hardCount" value="${hardCount + 1}" />
             </c:when>
         </c:choose>
@@ -55,12 +60,21 @@
 
 <div class="page-header">
     <div>
-        <h1 class="page-title">Exercise Management</h1>
-        <div class="page-subtitle">Review instructor-submitted coding challenges, approve or reject curriculum content, and inspect the platform exercise repository.</div>
+        <div style="display: flex; align-items: center; gap: 0.625rem; margin-bottom: 0.25rem;">
+            <span style="font-size: 1.5rem;">📚</span>
+            <h1 class="page-title" style="margin: 0;">Exercise Approvals &amp; Curriculum</h1>
+            <span class="badge badge-info" style="font-size: 0.7rem;">Curriculum Admin</span>
+        </div>
+        <div class="page-subtitle" style="color: var(--text-secondary); font-size: var(--font-size-sm); max-width: 680px;">
+            Moderate instructor-submitted coding challenges, approve or reject curriculum content, and inspect the platform problem library.
+        </div>
     </div>
     <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
         <a href="${pageContext.request.contextPath}/admin/dashboard" class="btn btn-secondary btn-sm">
             &larr; Back to Dashboard
+        </a>
+        <a href="${pageContext.request.contextPath}/admin/challenges" class="btn btn-secondary btn-sm">
+            🏆 Manage Challenges
         </a>
     </div>
 </div>
@@ -76,13 +90,13 @@
     </div>
     <div class="metric-card">
         <div class="metric-label">Pending Approval</div>
-        <div class="metric-value" style="color: var(--state-warning);"><c:out value="${pendingCount}" /></div>
+        <div class="metric-value stat-warning"><c:out value="${pendingCount}" /></div>
         <div class="metric-sub">Awaiting moderation review</div>
     </div>
     <div class="metric-card">
         <div class="metric-label">Approved</div>
-        <div class="metric-value" style="color: var(--state-success);"><c:out value="${approvedCount}" /></div>
-        <div class="metric-sub">Live student exercises</div>
+        <div class="metric-value stat-success"><c:out value="${approvedCount}" /></div>
+        <div class="metric-sub">Active live exercises</div>
     </div>
     <div class="metric-card">
         <div class="metric-label">Difficulty Mix</div>
@@ -95,18 +109,35 @@
     </div>
 </div>
 
+<c:if test="${pendingCount > 0}">
+    <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.875rem 1.125rem; background-color: var(--state-warning-bg); border: 1px solid var(--state-warning-border); border-radius: var(--radius-md); margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.75rem;">
+        <div style="display: flex; align-items: flex-start; gap: 0.625rem;">
+            <span style="font-size: 1.125rem; line-height: 1.2;">⚠️</span>
+            <div>
+                <div style="font-weight: 600; font-size: var(--font-size-sm); color: var(--state-warning-text);">
+                    Action Required: <c:out value="${pendingCount}" /> Exercise<c:if test="${pendingCount != 1}">s</c:if> Awaiting Administrative Moderation
+                </div>
+                <div style="font-size: var(--font-size-xs); color: var(--state-warning-text); opacity: 0.9; margin-top: 0.125rem;">
+                    Review submitted exercise specifications below. Approved challenges become instantly available to all learners across the platform.
+                </div>
+            </div>
+        </div>
+        <span class="badge badge-warning" style="font-size: 0.7rem;">Moderation Queue</span>
+    </div>
+</c:if>
+
 <%-- Card 1: Content Approval (Pending Exercises) --%>
 <div class="card" style="margin-bottom: 2rem;">
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
         <div>
-            <h2 class="card-title">Content Approval (Pending Exercises)</h2>
+            <h2 class="card-title">Content Approval (Pending Moderation Queue)</h2>
             <div style="font-size: var(--font-size-xs); color: var(--text-secondary); margin-top: 0.125rem;">
-                Exercises submitted by instructors requiring administrative moderation.
+                Exercises authored by instructors requiring administrative approval before publication
             </div>
         </div>
         <c:choose>
             <c:when test="${pendingCount > 0}">
-                <span class="badge badge-warning"><c:out value="${pendingCount}" /> Action Required</span>
+                <span class="badge badge-warning"><c:out value="${pendingCount}" /> Pending Approval</span>
             </c:when>
             <c:otherwise>
                 <span class="badge badge-success">Queue Clean</span>
@@ -121,13 +152,13 @@
                         <thead>
                             <tr>
                                 <th style="width: 80px;">ID</th>
-                                <th>Title</th>
+                                <th>Exercise Title</th>
                                 <th style="width: 110px;">Difficulty</th>
                                 <th>Topic</th>
-                                <th style="width: 140px;">Created By</th>
-                                <th style="width: 160px;">Created At</th>
+                                <th style="width: 140px;">Author</th>
+                                <th style="width: 160px;">Submitted At</th>
                                 <th style="width: 110px;">Status</th>
-                                <th style="min-width: 180px; text-align: right;">Action</th>
+                                <th style="min-width: 180px; text-align: right;">Moderation Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -137,23 +168,23 @@
                                         #<c:out value="${exercise.id}" />
                                     </td>
                                     <td>
-                                        <div style="font-weight: 600; color: var(--text-primary);">
+                                        <div style="font-weight: 600; color: var(--text-primary); font-size: var(--font-size-sm);">
                                             <c:out value="${exercise.title}" />
                                         </div>
                                     </td>
                                     <td>
                                         <c:choose>
-                                            <c:when test="${exercise.difficulty == 'EASY' || exercise.difficulty == 'Easy'}">
+                                            <c:when test="${exercise.difficulty == 'EASY' || exercise.difficulty == 'Easy' || exercise.difficulty == 'easy'}">
                                                 <span class="badge badge-success"><c:out value="${exercise.difficulty}" /></span>
                                             </c:when>
-                                            <c:when test="${exercise.difficulty == 'MEDIUM' || exercise.difficulty == 'Medium'}">
+                                            <c:when test="${exercise.difficulty == 'MEDIUM' || exercise.difficulty == 'Medium' || exercise.difficulty == 'medium'}">
                                                 <span class="badge badge-warning"><c:out value="${exercise.difficulty}" /></span>
                                             </c:when>
-                                            <c:when test="${exercise.difficulty == 'HARD' || exercise.difficulty == 'Hard'}">
+                                            <c:when test="${exercise.difficulty == 'HARD' || exercise.difficulty == 'Hard' || exercise.difficulty == 'hard'}">
                                                 <span class="badge badge-danger"><c:out value="${exercise.difficulty}" /></span>
                                             </c:when>
                                             <c:otherwise>
-                                                <span class="badge"><c:out value="${exercise.difficulty}" /></span>
+                                                <span class="badge"><c:out value="${exercise.difficulty != null ? exercise.difficulty : 'N/A'}" /></span>
                                             </c:otherwise>
                                         </c:choose>
                                     </td>
@@ -169,7 +200,7 @@
                                     </td>
                                     <td>
                                         <span style="font-family: var(--font-mono); font-size: var(--font-size-xs); color: var(--text-secondary);">
-                                            User #<c:out value="${exercise.createdBy}" />
+                                            Instructor #<c:out value="${exercise.createdBy}" />
                                         </span>
                                     </td>
                                     <td>
@@ -185,37 +216,24 @@
                                         </c:choose>
                                     </td>
                                     <td>
-                                        <c:choose>
-                                            <c:when test="${exercise.status == 'APPROVED'}">
-                                                <span class="badge badge-success"><c:out value="${exercise.status}" /></span>
-                                            </c:when>
-                                            <c:when test="${exercise.status == 'PENDING'}">
-                                                <span class="badge badge-warning"><c:out value="${exercise.status}" /></span>
-                                            </c:when>
-                                            <c:when test="${exercise.status == 'REJECTED'}">
-                                                <span class="badge badge-danger"><c:out value="${exercise.status}" /></span>
-                                            </c:when>
-                                            <c:otherwise>
-                                                <span class="badge"><c:out value="${exercise.status}" /></span>
-                                            </c:otherwise>
-                                        </c:choose>
+                                        <span class="badge badge-warning"><c:out value="${exercise.status != null ? exercise.status : 'PENDING'}" /></span>
                                     </td>
                                     <td style="text-align: right;">
                                         <div style="display: inline-flex; gap: 0.375rem; align-items: center; justify-content: flex-end;">
                                             <form action="${pageContext.request.contextPath}/admin/exercises" method="post" style="display: inline; margin: 0;">
-                                                <input type="hidden" name="csrfToken" value="${not empty csrfToken ? csrfToken : sessionScope.csrfToken}">
+                                                <input type="hidden" name="csrfToken" value="<c:out value='${not empty csrfToken ? csrfToken : sessionScope.csrfToken}' />">
                                                 <input type="hidden" name="id" value="${exercise.id}">
                                                 <input type="hidden" name="action" value="approve">
-                                                <button type="submit" class="btn btn-success btn-sm">
-                                                    Approve
+                                                <button type="submit" class="btn btn-success btn-sm" style="padding: 0.3125rem 0.625rem;">
+                                                    ✓ Approve
                                                 </button>
                                             </form>
                                             <form action="${pageContext.request.contextPath}/admin/exercises" method="post" style="display: inline; margin: 0;">
-                                                <input type="hidden" name="csrfToken" value="${not empty csrfToken ? csrfToken : sessionScope.csrfToken}">
+                                                <input type="hidden" name="csrfToken" value="<c:out value='${not empty csrfToken ? csrfToken : sessionScope.csrfToken}' />">
                                                 <input type="hidden" name="id" value="${exercise.id}">
                                                 <input type="hidden" name="action" value="reject">
-                                                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to reject this exercise?');">
-                                                    Reject
+                                                <button type="submit" class="btn btn-danger btn-sm" style="padding: 0.3125rem 0.625rem;" onclick="return confirm('Are you sure you want to reject this exercise?');">
+                                                    ✕ Reject
                                                 </button>
                                             </form>
                                         </div>
@@ -227,10 +245,10 @@
                 </div>
             </c:when>
             <c:otherwise>
-                <div style="padding: 3rem 1.5rem; text-align: center; color: var(--text-secondary);">
+                <div class="empty-state-box" style="margin: 2rem 1.5rem;">
                     <div style="font-size: 2.25rem; margin-bottom: 0.5rem;">✅</div>
-                    <p style="font-size: var(--font-size-base); font-weight: 600; margin-bottom: 0.25rem;">No Pending Exercises</p>
-                    <p style="font-size: var(--font-size-sm); color: var(--text-muted); margin-bottom: 0;">All submitted exercises have been reviewed. There are no exercises awaiting approval.</p>
+                    <div class="empty-state-title">No Pending Exercises</div>
+                    <div class="empty-state-text">All submitted curriculum exercises have been reviewed. There are currently no exercises awaiting administrative moderation.</div>
                 </div>
             </c:otherwise>
         </c:choose>
@@ -243,7 +261,7 @@
         <div>
             <h2 class="card-title">All Exercises (Curriculum Library)</h2>
             <div style="font-size: var(--font-size-xs); color: var(--text-secondary); margin-top: 0.125rem;">
-                Read-only catalog of all platform coding exercises and curriculum items.
+                Complete repository of all curriculum exercises across approved, pending, and rejected states
             </div>
         </div>
         <span class="badge badge-info"><c:out value="${totalCount}" /> Total Exercises</span>
@@ -256,11 +274,11 @@
                         <thead>
                             <tr>
                                 <th style="width: 80px;">ID</th>
-                                <th>Title</th>
+                                <th>Exercise Title</th>
                                 <th>Description</th>
                                 <th style="width: 110px;">Difficulty</th>
                                 <th>Topic</th>
-                                <th style="width: 140px;">Created By</th>
+                                <th style="width: 140px;">Author</th>
                                 <th style="width: 160px;">Created At</th>
                                 <th style="width: 110px;">Status</th>
                             </tr>
@@ -272,28 +290,28 @@
                                         #<c:out value="${exercise.id}" />
                                     </td>
                                     <td>
-                                        <div style="font-weight: 600; color: var(--text-primary);">
+                                        <div style="font-weight: 600; color: var(--text-primary); font-size: var(--font-size-sm);">
                                             <c:out value="${exercise.title}" />
                                         </div>
                                     </td>
                                     <td>
                                         <div style="max-width: 320px; color: var(--text-secondary); font-size: var(--font-size-xs); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;" title="<c:out value="${exercise.description}" />">
-                                            <c:out value="${exercise.description}" />
+                                            <c:out value="${exercise.description != null ? exercise.description : 'No description provided.'}" />
                                         </div>
                                     </td>
                                     <td>
                                         <c:choose>
-                                            <c:when test="${exercise.difficulty == 'EASY' || exercise.difficulty == 'Easy'}">
+                                            <c:when test="${exercise.difficulty == 'EASY' || exercise.difficulty == 'Easy' || exercise.difficulty == 'easy'}">
                                                 <span class="badge badge-success"><c:out value="${exercise.difficulty}" /></span>
                                             </c:when>
-                                            <c:when test="${exercise.difficulty == 'MEDIUM' || exercise.difficulty == 'Medium'}">
+                                            <c:when test="${exercise.difficulty == 'MEDIUM' || exercise.difficulty == 'Medium' || exercise.difficulty == 'medium'}">
                                                 <span class="badge badge-warning"><c:out value="${exercise.difficulty}" /></span>
                                             </c:when>
-                                            <c:when test="${exercise.difficulty == 'HARD' || exercise.difficulty == 'Hard'}">
+                                            <c:when test="${exercise.difficulty == 'HARD' || exercise.difficulty == 'Hard' || exercise.difficulty == 'hard'}">
                                                 <span class="badge badge-danger"><c:out value="${exercise.difficulty}" /></span>
                                             </c:when>
                                             <c:otherwise>
-                                                <span class="badge"><c:out value="${exercise.difficulty}" /></span>
+                                                <span class="badge"><c:out value="${exercise.difficulty != null ? exercise.difficulty : 'N/A'}" /></span>
                                             </c:otherwise>
                                         </c:choose>
                                     </td>
@@ -309,7 +327,7 @@
                                     </td>
                                     <td>
                                         <span style="font-family: var(--font-mono); font-size: var(--font-size-xs); color: var(--text-secondary);">
-                                            User #<c:out value="${exercise.createdBy}" />
+                                            Instructor #<c:out value="${exercise.createdBy}" />
                                         </span>
                                     </td>
                                     <td>
@@ -326,17 +344,17 @@
                                     </td>
                                     <td>
                                         <c:choose>
-                                            <c:when test="${exercise.status == 'APPROVED'}">
-                                                <span class="badge badge-success"><c:out value="${exercise.status}" /></span>
+                                            <c:when test="${exercise.status == 'APPROVED' || exercise.status == 'Approved' || exercise.status == 'approved'}">
+                                                <span class="badge badge-success">Approved</span>
                                             </c:when>
-                                            <c:when test="${exercise.status == 'PENDING'}">
-                                                <span class="badge badge-warning"><c:out value="${exercise.status}" /></span>
+                                            <c:when test="${exercise.status == 'PENDING' || exercise.status == 'Pending' || exercise.status == 'pending'}">
+                                                <span class="badge badge-warning">Pending</span>
                                             </c:when>
-                                            <c:when test="${exercise.status == 'REJECTED'}">
-                                                <span class="badge badge-danger"><c:out value="${exercise.status}" /></span>
+                                            <c:when test="${exercise.status == 'REJECTED' || exercise.status == 'Rejected' || exercise.status == 'rejected'}">
+                                                <span class="badge badge-danger">Rejected</span>
                                             </c:when>
                                             <c:otherwise>
-                                                <span class="badge"><c:out value="${exercise.status}" /></span>
+                                                <span class="badge"><c:out value="${exercise.status != null ? exercise.status : 'N/A'}" /></span>
                                             </c:otherwise>
                                         </c:choose>
                                     </td>
@@ -347,10 +365,10 @@
                 </div>
             </c:when>
             <c:otherwise>
-                <div style="padding: 3.5rem 1.5rem; text-align: center; color: var(--text-secondary);">
-                    <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">📚</div>
-                    <p style="font-size: var(--font-size-base); font-weight: 600; margin-bottom: 0.25rem;">No Exercises Found</p>
-                    <p style="font-size: var(--font-size-sm); color: var(--text-muted); margin-bottom: 0;">There are currently no exercises registered in the curriculum library.</p>
+                <div class="empty-state-box" style="margin: 2rem 1.5rem;">
+                    <div style="font-size: 2.25rem; margin-bottom: 0.5rem;">📚</div>
+                    <div class="empty-state-title">No Exercises Found</div>
+                    <div class="empty-state-text">There are currently no exercises registered in the curriculum library.</div>
                 </div>
             </c:otherwise>
         </c:choose>

@@ -13,10 +13,13 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import java.io.IOException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 @WebServlet("/login")
 public class LoginServlet extends HttpServlet {
 
+    private static final Logger LOGGER = Logger.getLogger(LoginServlet.class.getName());
     private UserService userService;
 
     @Override
@@ -67,6 +70,11 @@ public class LoginServlet extends HttpServlet {
                 request.getRequestDispatcher("/login.jsp").forward(request, response);
             }
         } catch (DatabaseException e) {
+            LOGGER.log(Level.SEVERE, "DatabaseException during login for user: " + email, e);
+            request.setAttribute("errorMessage", "An internal error occurred. Please try again later.");
+            request.getRequestDispatcher("/login.jsp").forward(request, response);
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Unexpected exception during login for user: " + email, e);
             request.setAttribute("errorMessage", "An internal error occurred. Please try again later.");
             request.getRequestDispatcher("/login.jsp").forward(request, response);
         }

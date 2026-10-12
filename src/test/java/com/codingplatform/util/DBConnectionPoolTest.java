@@ -9,6 +9,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.nio.file.Files;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -46,6 +49,7 @@ public class DBConnectionPoolTest {
         System.clearProperty("DB_POOL_IDLE_TIMEOUT_MS");
         System.clearProperty("DB_POOL_MAX_LIFETIME_MS");
         System.clearProperty("DB_POOL_NAME");
+        System.clearProperty("DB_CREDENTIALS_FILE");
     }
 
     @Test
@@ -300,5 +304,130 @@ public class DBConnectionPoolTest {
         assertTrue(ex.getMessage().contains("Live database access is blocked in TEST environment"));
         assertNull(ex.getCause(), "Must fail fast before attempting any network socket or HikariDataSource creation");
         assertFalse(DBConnection.isPoolInitialized(), "Pool must not be initialized when safety check fails");
+    }
+
+    @Test
+    public void testLoadCredentialsFromExplicitExternalFile() throws Exception {
+        DBConnection.setEnvLookup(key -> null);
+        File tempFile = File.createTempFile("db-test-creds", ".properties");
+        tempFile.deleteOnExit();
+        try (FileWriter writer = new FileWriter(tempFile)) {
+            writer.write("DB_URL=" + H2_URL + "\n");
+            writer.write("DB_USERNAME=" + H2_USER + "\n");
+            writer.write("DB_PASSWORD=" + H2_PASSWORD + "\n");
+            writer.write("DB_POOL_NAME=TestFilePool\n");
+        }
+
+        System.setProperty("DB_CREDENTIALS_FILE", tempFile.getAbsolutePath());
+
+        try (Connection conn = DBConnection.getConnection()) {
+            assertNotNull(conn, "Connection loaded via external credentials file must succeed");
+            assertTrue(conn.isValid(2));
+            assertTrue(DBConnection.isPoolInitialized());
+        } finally {
+            tempFile.delete();
+        }
+    }
+
+    @Test
+    public void testPrecedenceSystemPropertyOverExternalFile() throws Exception {
+        DBConnection.setEnvLookup(key -> null);
+        File tempFile = File.createTempFile("db-test-creds", ".properties");
+        tempFile.deleteOnExit();
+        try (FileWriter writer = new FileWriter(tempFile)) {
+            writer.write("DB_URL=" + H2_URL + "\n");
+            writer.write("DB_USERNAME=fileUser\n");
+            writer.write("DB_PASSWORD=" + H2_PASSWORD + "\n");
+            writer.write("DB_POOL_NAME=FilePool\n");
+        }
+
+        System.setProperty("DB_CREDENTIALS_FILE", tempFile.getAbsolutePath());
+        // System property should take precedence over external file
+        System.setProperty("DB_POOL_NAME", "SysPropPool");
+
+        HikariConfig config = DBConnection.createDefaultConfig(H2_URL, H2_USER, H2_PASSWORD);
+        assertEquals("SysPropPool", config.getPoolName(), "System property must override external file property");
+
+        tempFile.delete();
+    }
+
+    @Test
+    public void testPrecedenceEnvVarOverExternalFile() throws Exception {
+        File tempFile = File.createTempFile("db-test-creds", ".properties");
+        tempFile.deleteOnExit();
+        try (FileWriter writer = new FileWriter(tempFile)) {
+            writer.write("DB_URL=" + H2_URL + "\n");
+            writer.write("DB_USERNAME=fileUser\n");
+            writer.write("DB_PASSWORD=" + H2_PASSWORD + "\n");
+            writer.write("DB_POOL_NAME=FilePool\n");
+        }
+
+        System.setProperty("DB_CREDENTIALS_FILE", tempFile.getAbsolutePath());
+        // Environment variable should take precedence over external file
+        DBConnection.setEnvLookup(key -> "DB_POOL_NAME".equals(key) ? "EnvPool" : null);
+
+        HikariConfig config = DBConnection.createDefaultConfig(H2_URL, H2_USER, H2_PASSWORD);
+        assertEquals("EnvPool", config.getPoolName(), "Environment variable must override external file property");
+
+        tempFile.delete();
+    }
+
+    @Test
+    public void testNonExistentCredentialsFileThrowsDatabaseException() {
+        DBConnection.setEnvLookup(key -> null);
+        System.setProperty("DB_CREDENTIALS_FILE", "C:/non/existent/path/creds.properties");
+        DatabaseException exception = assertThrows(DatabaseException.class, DBConnection::getConnection);
+        assertEquals("Database credentials are not configured in environment variables.", exception.getMessage());
+    }
+
+    @Test
+    public void testExternalPropertiesAliases() throws Exception {
+        File tempFile = File.createTempFile("db-test-creds-alias", ".properties");
+        tempFile.deleteOnExit();
+        try (FileWriter writer = new FileWriter(tempFile)) {
+            writer.write("db.url=" + H2_URL + "\n");
+            writer.write("db.username=" + H2_USER + "\n");
+            writer.write("db.password=" + H2_PASSWORD + "\n");
+            writer.write("DB_POOL_NAME=AliasPool\n");
+        }
+
+        DBConnection.setEnvLookup(key -> null);
+        System.setProperty("DB_CREDENTIALS_FILE", tempFile.getAbsolutePath());
+
+        try (Connection conn = DBConnection.getConnection()) {
+            assertNotNull(conn, "Connection should be established using db.* property aliases from external file");
+            assertTrue(DBConnection.isPoolInitialized());
+        } finally {
+            DBConnection.shutdownPool();
+            tempFile.delete();
+        }
+    }
+
+    @Test
+    public void testTomcatCatalinaBaseCredentialsResolution() throws Exception {
+        File tempCatalinaDir = Files.createTempDirectory("mock-catalina").toFile();
+        File confDir = new File(tempCatalinaDir, "conf");
+        confDir.mkdirs();
+        File credsFile = new File(confDir, "db-credentials.properties");
+        try (FileWriter writer = new FileWriter(credsFile)) {
+            writer.write("DB_URL=" + H2_URL + "\n");
+            writer.write("DB_USERNAME=" + H2_USER + "\n");
+            writer.write("DB_PASSWORD=" + H2_PASSWORD + "\n");
+            writer.write("DB_POOL_NAME=TomcatConfPool\n");
+        }
+
+        DBConnection.setEnvLookup(key -> null);
+        System.setProperty("catalina.base", tempCatalinaDir.getAbsolutePath());
+
+        try (Connection conn = DBConnection.getConnection()) {
+            assertNotNull(conn, "Connection should be established using ${catalina.base}/conf/db-credentials.properties");
+            assertTrue(DBConnection.isPoolInitialized());
+        } finally {
+            DBConnection.shutdownPool();
+            System.clearProperty("catalina.base");
+            credsFile.delete();
+            confDir.delete();
+            tempCatalinaDir.delete();
+        }
     }
 }

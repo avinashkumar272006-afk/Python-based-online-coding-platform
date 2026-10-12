@@ -212,29 +212,72 @@ mvn test -DAPP_ENV=TEST
 
 ### Database Configuration
 
-The application reads database configuration from environment variables or JVM system properties via `DBConnection`:
+The application resolves database configuration via `DBConnection` according to strict precedence:
+1. **JVM System Properties** (e.g., `-DDB_URL=...`)
+2. **Process Environment Variables** (`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`)
+3. **Dedicated External Credentials File** (`${catalina.base}/conf/db-credentials.properties` or path specified via `DB_CREDENTIALS_FILE`)
+4. **Local Development `.env` File** (fallback active only in `LOCAL_DEV` or `UNKNOWN` environments)
 
-### Required Environment Variables
+### Dedicated External Credentials File (Recommended for Production & Tomcat)
 
-| Variable | Description | Example Format |
-| -------- | ----------- | -------------- |
+For production deployments on Apache Tomcat, manage database credentials in an external properties file located at:
+
+`${catalina.base}/conf/db-credentials.properties`
+
+This dedicated file avoids placing secrets in `setenv.bat`, JVM arguments, process environments, or shell history.
+
+Example template (`conf/db-credentials.properties`):
+
+```properties
+# Required Database Connection Properties
+DB_URL = jdbc:postgresql://<DB_HOST>:<DB_PORT>/<DB_NAME>
+DB_USERNAME = <DB_USER>
+DB_PASSWORD = <DB_PASSWORD>
+
+# Optional HikariCP Pool Configuration
+DB_POOL_NAME = PythonCodingPlatformPool
+DB_POOL_MAX_SIZE = 10
+DB_POOL_MIN_IDLE = 2
+DB_POOL_CONNECTION_TIMEOUT_MS = 30000
+DB_POOL_IDLE_TIMEOUT_MS = 600000
+DB_POOL_MAX_LIFETIME_MS = 1800000
+```
+
+> [!IMPORTANT]
+> **Credential Security Rules:**
+> * **Keep Outside Git:** The `db-credentials.properties` file must always reside outside the Git-tracked repository (such as in Tomcat's `conf/` directory) and is explicitly excluded by `.gitignore`. Never commit credentials files to source control.
+> * **Restricted File Permissions (ACLs):** Maintain restricted NTFS ACLs on Windows (inheritance disabled, access granted only to `SYSTEM` and designated administrators) or `chmod 600` on Linux/macOS to ensure other users or processes cannot read database secrets.
+
+### Environment Configuration via `.env.example`
+
+A template configuration file [`.env.example`](.env.example) is provided in the project root. For local development, create your local configuration or export these variables in your shell or Tomcat `bin/setenv.bat`:
+
+```powershell
+# In PowerShell:
+$env:APP_ENV = "LOCAL_DEV"
+$env:DB_URL = "jdbc:postgresql://<DB_HOST>:<DB_PORT>/<DB_NAME>"
+$env:DB_USERNAME = "<DB_USER>"
+$env:DB_PASSWORD = "<DB_PASSWORD>"
+```
+
+### Required Configuration Keys
+
+| Variable / Property Key | Description | Example Format |
+| ----------------------- | ----------- | -------------- |
 | `DB_URL` | JDBC connection URL for PostgreSQL / Supabase | `jdbc:postgresql://<DB_HOST>:<DB_PORT>/<DB_NAME>` |
 | `DB_USERNAME` | Database username | `<DB_USER>` |
 | `DB_PASSWORD` | Database user password | `<DB_PASSWORD>` |
 
 ### Optional Pool Tuning Variables
 
-| Variable | Default Value | Description |
-| -------- | ------------- | ----------- |
+| Variable / Property Key | Default Value | Description |
+| ----------------------- | ------------- | ----------- |
 | `DB_POOL_NAME` | `PythonCodingPlatformPool` | Name identifier for the HikariCP pool |
 | `DB_POOL_MAX_SIZE` | `10` | Maximum connections in the pool |
 | `DB_POOL_MIN_IDLE` | `2` | Minimum idle connections retained |
 | `DB_POOL_CONNECTION_TIMEOUT_MS` | `30000` | Connection checkout timeout in milliseconds |
 | `DB_POOL_IDLE_TIMEOUT_MS` | `600000` | Idle connection retirement timeout in milliseconds |
 | `DB_POOL_MAX_LIFETIME_MS` | `1800000` | Maximum connection lifetime in milliseconds |
-
-> [!IMPORTANT]
-> Never commit real database passwords, API tokens, or `.env` files to source control. Set credentials in your local environment or Tomcat runtime configuration.
 
 ## Build and Packaging
 
@@ -253,24 +296,44 @@ The compiled web application archive is generated at:
 
 ## Deployment
 
-1. Install and start **Apache Tomcat 10.1.x**.
-2. Configure the required environment variables (`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`) in Tomcat's environment (e.g., via `setenv.sh` or `setenv.bat` in Tomcat's `bin/` directory).
-3. Copy the packaged WAR file (`target/python-coding-platform-1.0-SNAPSHOT.war`) to Tomcat's `webapps/` folder (or rename it to `ROOT.war` for root context deployment).
-4. Access the platform in your browser at `http://localhost:8080/python-coding-platform-1.0-SNAPSHOT/` (or `http://localhost:8080/` if deployed as `ROOT`).
+1. Install and verify **Apache Tomcat 10.1.x** (e.g. `C:\Tomcat\apache-tomcat`).
+2. Configure runtime environment variables (`APP_ENV=LOCAL_DEV`, `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`) in Tomcat's `bin/setenv.bat` (Windows) or `bin/setenv.sh` (Linux).
+3. Copy the packaged WAR file to Tomcat's `webapps/` folder as `python-coding-platform.war` for the `/python-coding-platform` context path (or as `ROOT.war` for root deployment `/`).
+4. Start Tomcat and navigate to:
+   - Context deployment: `http://localhost:8080/python-coding-platform/`
+   - Root deployment: `http://localhost:8080/`
+
+### Deployment Troubleshooting
+
+| Symptom | Likely Cause | Recommended Resolution |
+| ------- | ------------ | ---------------------- |
+| **HTTP 404 on login or dashboard** | Context path mismatch | Ensure URL includes `/python-coding-platform/` if deployed as `python-coding-platform.war`, or deploy as `ROOT.war`. |
+| **HTTP 500 / Database connection failed** | Missing environment variables or unreachable database | Verify `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` in `bin/setenv.bat`; check Supabase network access or firewall rules. |
+| **HTTP 403 Invalid CSRF Token** | Session expired or CSRF token missing | Return to the form page to obtain a fresh session token; ensure JavaScript isn't stripping hidden `csrfToken` inputs. |
+| **`APP_ENV` warning in logs** | Unset or misspelled `APP_ENV` | Explicitly set `APP_ENV=LOCAL_DEV` or `PRODUCTION` in `setenv.bat`. |
+
+## User Interface & Screenshots
+
+The platform features a modern **Navy Blue + Tech Blue SaaS** design system across all 31 JSP views (including student, instructor, and admin dashboards, sidebars, and workspaces), alongside a clean authentication portal:
+
+![Platform Login Screen](screenshots/Screenshot%202026-10-09%20123133.png)
+
+*Figure: Platform authentication interface (Login portal).*
 
 ## Testing and Verification
 
 The automated test suite runs via Maven Surefire:
 
-* **Tests run:** 352
+* **Tests run:** 433
+* **Passed:** 429
 * **Failures:** 0
 * **Errors:** 0
-* **Skipped:** 3
+* **Skipped:** 4
 * **Build status:** BUILD SUCCESS
 
 The standard test suite executes in complete isolation using in-memory H2 databases and Mockito mocks. No external database connection or live network access is required for standard builds.
 
-The 3 skipped tests (`IntegrationCheckTest`, `ProgressDAOImplTest.testLiveDatabaseVerification`, and `DBConnectionTest.testLiveConnection`) are opt-in live database verification tests. They are skipped by default and only run when explicitly targeting a configured database with `-Dlive.db.test=true` or `-Plive-db`.
+The 4 skipped tests (`IntegrationCheckTest.testDb`, `ProgressDAOImplTest.testLiveDatabaseQueryIfConfigured`, `DBConnectionTest.testLiveConnection`, and `DBConnectionTest.testLiveConnectionFromExternalFile`) are opt-in live database verification tests. They are skipped by default and only run when explicitly targeting a configured database with `-Dlive.db.test=true` or `-Plive-db`.
 
 ## Current Limitations
 

@@ -23,6 +23,11 @@ public class AdminExerciseServlet extends HttpServlet {
         exerciseService = new ExerciseServiceImpl(new ExerciseDAOImpl(), new com.codingplatform.daoimpl.UserDAOImpl());
     }
 
+    // For testing
+    public void setExerciseService(ExerciseService exerciseService) {
+        this.exerciseService = exerciseService;
+    }
+
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         try {
@@ -69,6 +74,8 @@ public class AdminExerciseServlet extends HttpServlet {
             request.getSession().setAttribute("errorMessage", "Invalid exercise ID.");
         } catch (DatabaseException | SecurityException e) {
             e.printStackTrace();
+            request.getSession().setAttribute("errorMessage", e.getMessage());
+        } catch (IllegalArgumentException | IllegalStateException e) {
             request.getSession().setAttribute("errorMessage", e.getMessage());
         }
         
