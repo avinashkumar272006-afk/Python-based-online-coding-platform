@@ -371,6 +371,16 @@ Copy the compiled WAR file (`target/python-coding-platform-1.0-SNAPSHOT.war`) in
 * **Standard Context Deployment (Default & Recommended):**
   Deploy as `python-coding-platform.war` inside `$CATALINA_HOME/webapps/`.
   URL Context: `/python-coding-platform`
+
+  * **Windows (PowerShell):**
+    ```powershell
+    Copy-Item "target\python-coding-platform-1.0-SNAPSHOT.war" -Destination "$env:CATALINA_HOME\webapps\python-coding-platform.war" -Force
+    ```
+  * **Linux / macOS (Terminal):**
+    ```bash
+    cp target/python-coding-platform-1.0-SNAPSHOT.war "$CATALINA_HOME/webapps/python-coding-platform.war"
+    ```
+
 * **Root Context Deployment:**
   Deploy as `ROOT.war` inside `$CATALINA_HOME/webapps/` (replaces Tomcat's default root landing).
   URL Context: `/`
@@ -381,7 +391,10 @@ Run the appropriate startup script for your operating system:
 
 * **Windows (PowerShell / Command Prompt):**
   ```powershell
-  # Start Tomcat (launches in a separate console window)
+  # Option A: Start in foreground console (recommended to monitor startup logs and database connection)
+  & "$env:CATALINA_HOME\bin\catalina.bat" run
+
+  # Option B: Start in a separate background console window
   & "$env:CATALINA_HOME\bin\startup.bat"
 
   # Gracefully stop Tomcat
@@ -389,7 +402,10 @@ Run the appropriate startup script for your operating system:
   ```
 * **Linux / macOS (Bash / Zsh):**
   ```bash
-  # Start Tomcat
+  # Option A: Start in foreground console
+  $CATALINA_HOME/bin/catalina.sh run
+
+  # Option B: Start in background
   $CATALINA_HOME/bin/startup.sh
 
   # Gracefully stop Tomcat
@@ -400,7 +416,13 @@ Run the appropriate startup script for your operating system:
 
 ### 5. Access the Web Application
 
-Once Tomcat is started, navigate to:
+> [!IMPORTANT]
+> **Self-Hosted Local Application Notice:**
+> * **`localhost` is local to your machine:** The links below (`http://localhost:8080/...`) work **only** on the computer where Apache Tomcat is actively running.
+> * **GitHub does not host the runtime server:** This GitHub repository hosts the source code; it does not host or run the live Java web application. Clicking a `localhost` link directly from the GitHub web page will produce **`ERR_CONNECTION_REFUSED`** unless you have built and started the application on your own computer.
+> * **Verify server status:** Before navigating to the links below, ensure Apache Tomcat is running and listening on port 8080 (e.g. via `Get-NetTCPConnection -LocalPort 8080` in PowerShell).
+
+Once Tomcat is running on your machine, navigate to:
 
 * **Standard Context Deployment (`python-coding-platform.war`):**
   * **Landing Portal:** [http://localhost:8080/python-coding-platform/](http://localhost:8080/python-coding-platform/) (or `/home`)
@@ -418,6 +440,7 @@ Once Tomcat is started, navigate to:
 
 | Symptom | Likely Cause | Recommended Resolution |
 | ------- | ------------ | ---------------------- |
+| **`ERR_CONNECTION_REFUSED`** | Apache Tomcat server is not running | Start Tomcat using Step 4 above (`catalina.bat run` or `startup.bat`). Remember that `localhost` is hosted only on your local machine and not by GitHub. |
 | **HTTP 404 on login or dashboard** | Context path mismatch | Ensure URL includes `/python-coding-platform/` if deployed as `python-coding-platform.war`, or verify WAR is named `ROOT.war`. |
 | **HTTP 500 / Database connection failed** | Missing environment variables or unreachable database | Verify `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` in `bin/setenv.bat` or `conf/db-credentials.properties`; check Supabase network access or firewall rules. |
 | **HTTP 403 Invalid CSRF Token** | Session expired or CSRF token missing | Return to the form page to obtain a fresh session token; ensure JavaScript isn't stripping hidden `csrfToken` inputs. |
