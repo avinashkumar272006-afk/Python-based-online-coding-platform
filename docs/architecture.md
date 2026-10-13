@@ -43,3 +43,13 @@ The application follows a layered MVC (Model-View-Controller) design pattern bui
 5. **DAO / HikariCP**: Borrows a JDBC connection from the HikariCP pool and executes parameterized SQL against PostgreSQL (or H2 in test).
 6. **Servlet / JSP**: Prepares response attributes and forwards to the JSP view (or redirects to dashboard/list routes).
 
+```mermaid
+flowchart TD
+    Client["Client / Browser"] --> Filter["Filter Perimeter<br/>(AuthenticationFilter & CsrfFilter)"]
+    Filter --> Servlet["Controller Layer<br/>(Jakarta Servlets)"]
+    Servlet --> Service["Service Layer<br/>(Business Logic & Ownership)"]
+    Service --> DAO["DAO Layer<br/>(JDBC PreparedStatement)"]
+    DAO --> Pool["Connection Pool<br/>(HikariCP)"]
+    Pool --> DB[("Database<br/>PostgreSQL / Test H2")]
+    Servlet -.-> JSP["View Layer<br/>(JSP & Static Assets)"]
+```

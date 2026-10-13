@@ -35,8 +35,9 @@ public class AuthenticationFilter implements Filter {
         boolean isInstructorPath = path.startsWith("/instructor/");
         boolean isAdminPath = path.startsWith("/admin/");
         boolean isMessagesPath = path.equals("/messages") || path.startsWith("/messages/");
+        boolean isProfilePath = path.equals("/profile") || path.equals("/profile.jsp");
         
-        boolean isProtectedPath = isStudentPath || isInstructorPath || isAdminPath || isMessagesPath;
+        boolean isProtectedPath = isStudentPath || isInstructorPath || isAdminPath || isMessagesPath || isProfilePath;
         
         if (isProtectedPath) {
             HttpSession session = httpRequest.getSession(false);

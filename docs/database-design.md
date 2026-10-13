@@ -86,6 +86,22 @@ Student participation records for approved coding challenges.
 * *Constraints:* UNIQUE (`challenge_id`, `student_id`)
 * *Indexes:* `idx_cp_challenge_id`, `idx_cp_student_id`
 
+## Entity-Relationship Diagram
+
+```mermaid
+erDiagram
+    users ||--o{ exercises : "authors (created_by)"
+    users ||--o{ submissions : "submits (student_id)"
+    users ||--o{ submissions : "reviews (reviewed_by)"
+    users ||--o{ messages : "sends (sender_id)"
+    users ||--o{ messages : "receives (receiver_id)"
+    users ||--o{ system_settings : "updates (updated_by)"
+    users ||--o{ challenges : "creates (created_by)"
+    users ||--o{ challenge_participants : "joins (student_id)"
+    exercises ||--o{ submissions : "receives (exercise_id)"
+    challenges ||--o{ challenge_participants : "enrolls (challenge_id)"
+```
+
 ## Dynamically Computed Metrics (No Physical Table)
 
 * **Student Progress (`StudentProgress` model):**
@@ -101,4 +117,3 @@ The following entities and capabilities are reserved for future phases:
 * `test_cases`: Test suites and parameter-output assertions for automated Python test execution.
 * `execution_runs`: Sandbox execution metadata (runtime, memory usage, stdout/stderr, execution exit codes).
 * `achievements` / `badges`: Gamification awards and milestone badges earned upon completing challenges or exercise milestones.
-

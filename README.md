@@ -41,6 +41,16 @@ Educational coding workflows often require managing exercise distribution, colle
 * Audit submissions and overall platform activity.
 * Configure system-wide settings (registration toggles, maintenance mode, default difficulty).
 
+### End-to-End Collaborative Workflow
+
+The platform implements a structured, multi-role review and learning lifecycle across Students, Instructors, and Administrators:
+
+1. **Exercise Authoring:** An **Instructor** authors a Python programming exercise with title, description, topic, difficulty (`EASY`, `MEDIUM`, `HARD`), starter code, and expected output (`POST /instructor/exercises`). The exercise is persisted with initial status `PENDING`.
+2. **Administrative Moderation:** An **Administrator** inspects proposed exercises on the management console (`POST /admin/exercises`) and approves or rejects them. Only exercises transitioned to `APPROVED` status are published to the student catalog.
+3. **Student Submission:** A **Student** browses approved exercises (`GET /student/exercises`), writes solution code in the exercise workspace, and submits it for evaluation (`POST /student/submit`). The submission is recorded in PostgreSQL with initial status `PENDING`. *(Note: Code is stored for manual instructor review; automated sandbox execution is not performed).*
+4. **Instructor Review & Grading:** The **Instructor** who authored the exercise inspects pending student submissions (`GET /instructor/submission/review`), assigns a numerical score (`0`–`100`, enforced by service boundaries and database constraints), and enters qualitative feedback (`POST /instructor/submission/review`). The submission status transitions to `REVIEWED`.
+5. **Progress & Feedback Inspection:** The **Student** views instructor scores, review timestamps, and feedback under their submissions log (`GET /student/submissions`). Dynamic progress aggregates (completed exercises, pending reviews, and average score) recalculate automatically on the student dashboard (`GET /student/dashboard`).
+
 ## Technology Stack
 
 | Component                       | Technology / Version                                        | Details / Specification                                      |
@@ -90,7 +100,7 @@ See [`docs/architecture.md`](docs/architecture.md) and [`docs/database-design.md
 │   ├── architecture.md
 │   └── database-design.md
 ├── screenshots/
-│   └── Screenshot 2026-10-09 123133.png
+│   └── login-portal.png
 ├── src/
 │   ├── main/
 │   │   ├── java/com/codingplatform/
@@ -113,11 +123,26 @@ See [`docs/architecture.md`](docs/architecture.md) and [`docs/database-design.md
 │   │       ├── js/
 │   │       ├── messages/
 │   │       ├── student/
-│   │       └── index.jsp
+│   │       ├── index.jsp
+│   │       ├── login.jsp
+│   │       ├── profile.jsp
+│   │       └── register.jsp
 │   └── test/
+├── .env.example
 ├── pom.xml
 ├── README.md
 └── .gitignore
+```
+
+## Getting Started
+
+### Repository Setup
+
+Clone the repository and navigate into the project directory:
+
+```bash
+git clone https://github.com/avinashkumar272006-afk/Python-based-online-coding-platform.git
+cd Python-based-online-coding-platform
 ```
 
 ## Prerequisites
@@ -179,6 +204,30 @@ psql -h <DB_HOST> -p <DB_PORT> -U <DB_USER> -d <DB_NAME> -f database/migrations/
 psql -h <DB_HOST> -p <DB_PORT> -U <DB_USER> -d <DB_NAME> -f database/migrations/V7__add_score_to_submissions.sql
 psql -h <DB_HOST> -p <DB_PORT> -U <DB_USER> -d <DB_NAME> -f database/migrations/V8__create_challenges.sql
 ```
+
+### Initial Administrator Account Provisioning
+
+By security design, public self-registration (`/register` and `/register.jsp`) restricts account creation to `STUDENT` or `INSTRUCTOR` roles. Attempting to register an `ADMIN` account through the public interface is explicitly rejected by the business logic layer (`UserServiceImpl`).
+
+To safely bootstrap the initial Administrator account without storing plaintext credentials or hardcoded hashes in source control:
+
+1. **Register a Baseline Account:** Launch the application and create an account through the registration portal (`/register.jsp`) using your designated administrator email address and a strong password (minimum 6 characters). This ensures the password is securely salted and hashed using BCrypt (`BCrypt.hashpw` with cost factor 10) through the application service layer.
+2. **Promote the Account via Database Console:** As an authorized database administrator with direct access to your PostgreSQL or Supabase SQL console, execute an isolated role update targeting that specific registered user:
+
+```sql
+-- Execute only in a secure PostgreSQL / Supabase SQL console
+-- Replace the placeholder email below with the exact address registered in Step 1:
+UPDATE users
+SET role = 'ADMIN'
+WHERE email = 'admin.placeholder@example.com';
+```
+
+3. **Verify Administrative Access:** Sign in via `/login`. The security filter (`AuthenticationFilter`) will verify the updated `ADMIN` role and grant access to the admin suite (`/admin/dashboard`). From this console, the primary administrator can manage system settings, moderate exercises and challenges, and promote or demote other users via the web interface (`/admin/users`).
+
+> [!IMPORTANT]
+> * The account must already exist in the database before running the update statement.
+> * Never insert plaintext passwords directly into the `users` table, as the application strictly verifies BCrypt password hashes.
+> * Restrict SQL execution to authorized database administrators; never commit credentials or embed provisioning scripts into automated CI/CD pipelines.
 
 ## Environment and Database Configuration
 
@@ -296,19 +345,81 @@ The compiled web application archive is generated at:
 
 ## Deployment
 
-1. Install and verify **Apache Tomcat 10.1.x** (e.g. `C:\Tomcat\apache-tomcat`).
-2. Configure runtime environment variables (`APP_ENV=LOCAL_DEV`, `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`) in Tomcat's `bin/setenv.bat` (Windows) or `bin/setenv.sh` (Linux).
-3. Copy the packaged WAR file to Tomcat's `webapps/` folder as `python-coding-platform.war` for the `/python-coding-platform` context path (or as `ROOT.war` for root deployment `/`).
-4. Start Tomcat and navigate to:
-   - Context deployment: `http://localhost:8080/python-coding-platform/`
-   - Root deployment: `http://localhost:8080/`
+### 1. Application Server Preparation
+
+Install and verify **Apache Tomcat 10.1.x** (compatible with Jakarta EE 10 / Servlet 6.0). Define `CATALINA_HOME` pointing to your Tomcat installation:
+
+* **Windows (PowerShell):**
+  ```powershell
+  $env:CATALINA_HOME = "C:\Tomcat\apache-tomcat"
+  ```
+* **Linux / macOS (Terminal):**
+  ```bash
+  export CATALINA_HOME="/opt/tomcat"
+  ```
+
+### 2. Configure Runtime Environment
+
+Configure runtime database credentials and environment variables (`APP_ENV=LOCAL_DEV`, `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`) in:
+* Tomcat's `bin/setenv.bat` (Windows) or `bin/setenv.sh` (Linux), OR
+* Dedicated external credentials file at `$CATALINA_HOME/conf/db-credentials.properties` (Recommended for production).
+
+### 3. Deploy the WAR Artifact
+
+Copy the compiled WAR file (`target/python-coding-platform-1.0-SNAPSHOT.war`) into Tomcat's `webapps/` folder:
+
+* **Standard Context Deployment (Default & Recommended):**
+  Deploy as `python-coding-platform.war` inside `$CATALINA_HOME/webapps/`.
+  URL Context: `/python-coding-platform`
+* **Root Context Deployment:**
+  Deploy as `ROOT.war` inside `$CATALINA_HOME/webapps/` (replaces Tomcat's default root landing).
+  URL Context: `/`
+
+### 4. Start and Stop Apache Tomcat
+
+Run the appropriate startup script for your operating system:
+
+* **Windows (PowerShell / Command Prompt):**
+  ```powershell
+  # Start Tomcat (launches in a separate console window)
+  & "$env:CATALINA_HOME\bin\startup.bat"
+
+  # Gracefully stop Tomcat
+  & "$env:CATALINA_HOME\bin\shutdown.bat"
+  ```
+* **Linux / macOS (Bash / Zsh):**
+  ```bash
+  # Start Tomcat
+  $CATALINA_HOME/bin/startup.sh
+
+  # Gracefully stop Tomcat
+  $CATALINA_HOME/bin/shutdown.sh
+  ```
+
+*(Alternative embedded run for rapid development: `mvn cargo:run` executes the embedded Tomcat 10 container on port 8080).*
+
+### 5. Access the Web Application
+
+Once Tomcat is started, navigate to:
+
+* **Standard Context Deployment (`python-coding-platform.war`):**
+  * **Landing Portal:** [http://localhost:8080/python-coding-platform/](http://localhost:8080/python-coding-platform/) (or `/home`)
+  * **Sign In:** [http://localhost:8080/python-coding-platform/login](http://localhost:8080/python-coding-platform/login)
+  * **Registration:** [http://localhost:8080/python-coding-platform/register](http://localhost:8080/python-coding-platform/register)
+* **Root Context Deployment (`ROOT.war`):**
+  * **Landing Portal:** [http://localhost:8080/](http://localhost:8080/)
+  * **Sign In:** [http://localhost:8080/login](http://localhost:8080/login)
+  * **Registration:** [http://localhost:8080/register](http://localhost:8080/register)
+
+> [!NOTE]
+> `http://localhost:8080/` connects to the coding platform **only** when deployed as `ROOT.war`. For standard deployments named `python-coding-platform.war`, you must include `/python-coding-platform/` in the URL path.
 
 ### Deployment Troubleshooting
 
 | Symptom | Likely Cause | Recommended Resolution |
 | ------- | ------------ | ---------------------- |
-| **HTTP 404 on login or dashboard** | Context path mismatch | Ensure URL includes `/python-coding-platform/` if deployed as `python-coding-platform.war`, or deploy as `ROOT.war`. |
-| **HTTP 500 / Database connection failed** | Missing environment variables or unreachable database | Verify `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` in `bin/setenv.bat`; check Supabase network access or firewall rules. |
+| **HTTP 404 on login or dashboard** | Context path mismatch | Ensure URL includes `/python-coding-platform/` if deployed as `python-coding-platform.war`, or verify WAR is named `ROOT.war`. |
+| **HTTP 500 / Database connection failed** | Missing environment variables or unreachable database | Verify `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` in `bin/setenv.bat` or `conf/db-credentials.properties`; check Supabase network access or firewall rules. |
 | **HTTP 403 Invalid CSRF Token** | Session expired or CSRF token missing | Return to the form page to obtain a fresh session token; ensure JavaScript isn't stripping hidden `csrfToken` inputs. |
 | **`APP_ENV` warning in logs** | Unset or misspelled `APP_ENV` | Explicitly set `APP_ENV=LOCAL_DEV` or `PRODUCTION` in `setenv.bat`. |
 
@@ -316,7 +427,7 @@ The compiled web application archive is generated at:
 
 The platform features a modern **Navy Blue + Tech Blue SaaS** design system across all 31 JSP views (including student, instructor, and admin dashboards, sidebars, and workspaces), alongside a clean authentication portal:
 
-![Platform Login Screen](screenshots/Screenshot%202026-10-09%20123133.png)
+![Platform Login Screen](screenshots/login-portal.png)
 
 *Figure: Platform authentication interface (Login portal).*
 
@@ -350,10 +461,9 @@ The 4 skipped tests (`IntegrationCheckTest.testDb`, `ProgressDAOImplTest.testLiv
 
 ## Author
 
-**Avinash Kumar**  
+**Avinash Kumar**
 GitHub: [@avinashkumar272006-afk](https://github.com/avinashkumar272006-afk)
 
 ---
 
 Developed for learning, demonstrating robust Java Jakarta EE web development, and exploring structured educational workflow management.
-

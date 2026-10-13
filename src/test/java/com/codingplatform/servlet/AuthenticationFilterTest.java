@@ -226,4 +226,104 @@ public class AuthenticationFilterTest {
         verify(response).sendRedirect("/login.jsp");
         verify(chain, never()).doFilter(request, response);
     }
+
+    @Test
+    public void testUnauthenticatedUserCannotAccessProfileRoute() throws Exception {
+        when(request.getRequestURI()).thenReturn("/profile");
+        when(request.getSession(false)).thenReturn(null);
+
+        filter.doFilter(request, response, chain);
+
+        verify(response).sendRedirect("/login.jsp");
+        verify(chain, never()).doFilter(request, response);
+    }
+
+    @Test
+    public void testUnauthenticatedUserCannotAccessProfileJsp() throws Exception {
+        when(request.getRequestURI()).thenReturn("/profile.jsp");
+        when(request.getSession(false)).thenReturn(null);
+
+        filter.doFilter(request, response, chain);
+
+        verify(response).sendRedirect("/login.jsp");
+        verify(chain, never()).doFilter(request, response);
+    }
+
+    @Test
+    public void testStudentCanAccessProfileRoute() throws Exception {
+        when(request.getRequestURI()).thenReturn("/profile");
+        when(request.getSession(false)).thenReturn(session);
+        when(session.getAttribute("userId")).thenReturn(1);
+        when(session.getAttribute("role")).thenReturn("STUDENT");
+
+        filter.doFilter(request, response, chain);
+
+        verify(response, never()).sendRedirect(anyString());
+        verify(chain).doFilter(request, response);
+    }
+
+    @Test
+    public void testInstructorCanAccessProfileRoute() throws Exception {
+        when(request.getRequestURI()).thenReturn("/profile");
+        when(request.getSession(false)).thenReturn(session);
+        when(session.getAttribute("userId")).thenReturn(2);
+        when(session.getAttribute("role")).thenReturn("INSTRUCTOR");
+
+        filter.doFilter(request, response, chain);
+
+        verify(response, never()).sendRedirect(anyString());
+        verify(chain).doFilter(request, response);
+    }
+
+    @Test
+    public void testAdminCanAccessProfileRoute() throws Exception {
+        when(request.getRequestURI()).thenReturn("/profile");
+        when(request.getSession(false)).thenReturn(session);
+        when(session.getAttribute("userId")).thenReturn(3);
+        when(session.getAttribute("role")).thenReturn("ADMIN");
+
+        filter.doFilter(request, response, chain);
+
+        verify(response, never()).sendRedirect(anyString());
+        verify(chain).doFilter(request, response);
+    }
+
+    @Test
+    public void testStudentCanAccessProfileJsp() throws Exception {
+        when(request.getRequestURI()).thenReturn("/profile.jsp");
+        when(request.getSession(false)).thenReturn(session);
+        when(session.getAttribute("userId")).thenReturn(1);
+        when(session.getAttribute("role")).thenReturn("STUDENT");
+
+        filter.doFilter(request, response, chain);
+
+        verify(response, never()).sendRedirect(anyString());
+        verify(chain).doFilter(request, response);
+    }
+
+    @Test
+    public void testInstructorCanAccessProfileJsp() throws Exception {
+        when(request.getRequestURI()).thenReturn("/profile.jsp");
+        when(request.getSession(false)).thenReturn(session);
+        when(session.getAttribute("userId")).thenReturn(2);
+        when(session.getAttribute("role")).thenReturn("INSTRUCTOR");
+
+        filter.doFilter(request, response, chain);
+
+        verify(response, never()).sendRedirect(anyString());
+        verify(chain).doFilter(request, response);
+    }
+
+    @Test
+    public void testAdminCanAccessProfileJsp() throws Exception {
+        when(request.getRequestURI()).thenReturn("/profile.jsp");
+        when(request.getSession(false)).thenReturn(session);
+        when(session.getAttribute("userId")).thenReturn(3);
+        when(session.getAttribute("role")).thenReturn("ADMIN");
+
+        filter.doFilter(request, response, chain);
+
+        verify(response, never()).sendRedirect(anyString());
+        verify(chain).doFilter(request, response);
+    }
 }
