@@ -297,6 +297,16 @@ DB_POOL_MAX_LIFETIME_MS = 1800000
 > * **Keep Outside Git:** The `db-credentials.properties` file must always reside outside the Git-tracked repository (such as in Tomcat's `conf/` directory) and is explicitly excluded by `.gitignore`. Never commit credentials files to source control.
 > * **Restricted File Permissions (ACLs):** Maintain restricted NTFS ACLs on Windows (inheritance disabled, access granted only to `SYSTEM` and designated administrators) or `chmod 600` on Linux/macOS to ensure other users or processes cannot read database secrets.
 
+> [!TIP]
+> **Isolating Tomcat from Ambient Environment Variables:**
+> If `DB_PASSWORD`, `DB_URL`, or `DB_USERNAME` are defined as operating system user/system environment variables, process inheritance will cause them to override `conf/db-credentials.properties`. To ensure Tomcat loads exclusively from `conf/db-credentials.properties`, clear inherited variables inside `$CATALINA_BASE/bin/setenv.bat` (Windows) or `bin/setenv.sh` (Linux/macOS):
+> ```bat
+> rem Clear ambient environment variables to ensure Tomcat uses conf\db-credentials.properties
+> set "DB_URL="
+> set "DB_USERNAME="
+> set "DB_PASSWORD="
+> ```
+
 ### Environment Configuration via `.env.example`
 
 A template configuration file [`.env.example`](.env.example) is provided in the project root. For local development, create your local configuration or export these variables in your shell or Tomcat `bin/setenv.bat`:
@@ -442,7 +452,7 @@ Once Tomcat is running on your machine, navigate to:
 | ------- | ------------ | ---------------------- |
 | **`ERR_CONNECTION_REFUSED`** | Apache Tomcat server is not running | Start Tomcat using Step 4 above (`catalina.bat run` or `startup.bat`). Remember that `localhost` is hosted only on your local machine and not by GitHub. |
 | **HTTP 404 on login or dashboard** | Context path mismatch | Ensure URL includes `/python-coding-platform/` if deployed as `python-coding-platform.war`, or verify WAR is named `ROOT.war`. |
-| **HTTP 500 / Database connection failed** | Missing environment variables or unreachable database | Verify `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` in `bin/setenv.bat` or `conf/db-credentials.properties`; check Supabase network access or firewall rules. |
+| **"An internal error occurred" on Login / Database connection failed** | Ambient environment variable (`DB_PASSWORD`) overrides `conf/db-credentials.properties` with an invalid password, or database unreachable | In `bin/setenv.bat` (or `setenv.sh`), explicitly clear inherited ambient variables (`set "DB_PASSWORD="`) so Tomcat loads exclusively from `conf/db-credentials.properties`; verify database credentials and network reachability. |
 | **HTTP 403 Invalid CSRF Token** | Session expired or CSRF token missing | Return to the form page to obtain a fresh session token; ensure JavaScript isn't stripping hidden `csrfToken` inputs. |
 | **`APP_ENV` warning in logs** | Unset or misspelled `APP_ENV` | Explicitly set `APP_ENV=LOCAL_DEV` or `PRODUCTION` in `setenv.bat`. |
 
